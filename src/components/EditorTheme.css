@@ -24,13 +24,13 @@
 }
 
 /* --- Headings --- */
-/* Heading spacing uses padding-top on .bn-block-outer so drag handles 
-   (which are positioned relative to .bn-block) stay vertically aligned with the text.
-   margin would push the handle away from the text; padding keeps it inside. */
+/* Heading spacing: use margin-top on .bn-block-outer (creates space between blocks)
+   and ensure the handle aligns by NOT adding padding/margin on inner elements.
+   BlockNote positions handles via JS based on .bn-block-content bounding rect. */
 
 .editor__blocknote-container .bn-block-outer:has(> .bn-block > [data-content-type="heading"][data-level="1"]) {
-  padding-top: var(--headings-h1-margin-top);
-  padding-bottom: var(--headings-h1-margin-bottom);
+  margin-top: var(--headings-h1-margin-top) !important;
+  margin-bottom: var(--headings-h1-margin-bottom) !important;
 }
 .editor__blocknote-container [data-content-type="heading"][data-level="1"] .bn-inline-content {
   font-size: var(--headings-h1-font-size);
@@ -41,8 +41,8 @@
 }
 
 .editor__blocknote-container .bn-block-outer:has(> .bn-block > [data-content-type="heading"][data-level="2"]) {
-  padding-top: var(--headings-h2-margin-top);
-  padding-bottom: var(--headings-h2-margin-bottom);
+  margin-top: var(--headings-h2-margin-top) !important;
+  margin-bottom: var(--headings-h2-margin-bottom) !important;
 }
 .editor__blocknote-container [data-content-type="heading"][data-level="2"] .bn-inline-content {
   font-size: var(--headings-h2-font-size);
@@ -53,8 +53,8 @@
 }
 
 .editor__blocknote-container .bn-block-outer:has(> .bn-block > [data-content-type="heading"][data-level="3"]) {
-  padding-top: var(--headings-h3-margin-top);
-  padding-bottom: var(--headings-h3-margin-bottom);
+  margin-top: var(--headings-h3-margin-top) !important;
+  margin-bottom: var(--headings-h3-margin-bottom) !important;
 }
 .editor__blocknote-container [data-content-type="heading"][data-level="3"] .bn-inline-content {
   font-size: var(--headings-h3-font-size);
@@ -65,8 +65,8 @@
 }
 
 .editor__blocknote-container .bn-block-outer:has(> .bn-block > [data-content-type="heading"][data-level="4"]) {
-  padding-top: var(--headings-h4-margin-top);
-  padding-bottom: var(--headings-h4-margin-bottom);
+  margin-top: var(--headings-h4-margin-top) !important;
+  margin-bottom: var(--headings-h4-margin-bottom) !important;
 }
 .editor__blocknote-container [data-content-type="heading"][data-level="4"] .bn-inline-content {
   font-size: var(--headings-h4-font-size);
@@ -89,6 +89,10 @@
   color: var(--lists-bullet-color) !important;
   min-width: var(--lists-indent-size) !important;
   width: var(--lists-indent-size) !important;
+  /* Align bullet with first line of text */
+  height: calc(var(--editor-font-size) * var(--editor-line-height)) !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
 }
 
 /* Nested list indentation */
@@ -107,6 +111,9 @@
   font-size: var(--editor-font-size) !important;
   min-width: var(--lists-indent-size) !important;
   width: var(--lists-indent-size) !important;
+  height: calc(var(--editor-font-size) * var(--editor-line-height)) !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
 }
 
 /* --- Checkbox / check list items --- */
@@ -126,13 +133,15 @@
   cursor: pointer;
 }
 
-/* Checkbox container div — control spacing */
+/* Checkbox container div — control spacing, align to first line */
 .editor__blocknote-container [data-content-type="checkListItem"] > div[contenteditable="false"] {
   width: var(--lists-indent-size) !important;
   min-width: var(--lists-indent-size) !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: calc(var(--editor-font-size) * var(--editor-line-height)) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
 }
 
 /* --- Inline: bold --- */

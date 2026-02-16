@@ -19,7 +19,7 @@
       "letterSpacing": -0.5
     },
     "h2": {
-      "fontSize": 24,
+      "fontSize": 20,
       "fontWeight": 600,
       "lineHeight": 1.3,
       "marginTop": 28,
@@ -37,7 +37,7 @@
       "letterSpacing": 0
     },
     "h4": {
-      "fontSize": 17,
+      "fontSize": 20,
       "fontWeight": 600,
       "lineHeight": 1.4,
       "marginTop": 20,
@@ -48,7 +48,7 @@
   },
   "lists": {
     "bulletSymbol": "•",
-    "bulletSize": 20,
+    "bulletSize": 28,
     "bulletColor": "var(--text-tertiary)",
     "indentSize": 24,
     "itemSpacing": 4,
@@ -56,7 +56,7 @@
     "nestedBulletSymbols": ["•", "◦", "▪"]
   },
   "checkboxes": {
-    "size": 20,
+    "size": 16,
     "borderRadius": 3,
     "checkedColor": "var(--accent-blue)",
     "uncheckedBorderColor": "var(--text-muted)"
