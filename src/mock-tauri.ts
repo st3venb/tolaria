@@ -20,41 +20,96 @@ related_to:
 
 # Build Laputa App
 
-## Overview
-Custom desktop app for managing life and knowledge, built with **Tauri** + **React** + **CodeMirror 6**.
+## Text Formatting
+This paragraph has **bold text**, *italic text*, ***bold italic***, ~~strikethrough~~, and \`inline code\`. Here's a [regular link](https://example.com) and a wiki-link to [[Matteo Cellini]].
 
-The goal is to replace Obsidian with a purpose-built tool that understands the Laputa ontology natively — *projects*, *responsibilities*, *procedures*, and how they all connect.
+## Headings
 
-## Key Results
-- [x] Four-panel layout working
-- [x] Sidebar navigation with filtering
-- [x] Vault scanner reads markdown files
-- [ ] CodeMirror 6 editor with live preview
-- [ ] Inspector panel with metadata editing
+### Third Level Heading
+Content under H3.
 
-## Architecture
-The app reads a vault of markdown files with YAML frontmatter:
+#### Fourth Level Heading
+Content under H4.
+
+## Lists
+
+### Bullet Lists (Nested)
+- First level item — this is a top-level bullet point
+  - Second level item — indented one level
+    - Third level item — indented two levels
+    - Another third level item with longer text that wraps to multiple lines to test alignment
+  - Back to second level
+- Another first level item
+  - With a nested child
+- Final first level item
+
+### Numbered Lists
+1. Step one — do this first
+2. Step two — then do this
+3. Step three — finally this
+   1. Sub-step 3a
+   2. Sub-step 3b
+
+### Checkboxes
+- [x] Completed task with strikethrough
+- [x] Another done item
+- [ ] Pending task — needs attention
+- [ ] Future task with **bold** text inside
+
+### Mixed Nesting
+- Top level bullet
+  - Nested bullet
+    - Deep nested bullet
+  - Back to second
+- Another top level
+  - With child
+
+## Block Quotes
+> This is a blockquote. It should have a left border and distinct styling.
+> It can span multiple lines and contain **formatting**.
+
+## Code Blocks
+\`\`\`typescript
+interface VaultEntry {
+  path: string;
+  title: string;
+  isA: string;
+  status: string | null;
+}
+
+function loadVault(path: string): VaultEntry[] {
+  // Load all markdown files from the vault
+  return entries.filter(e => e.isA !== 'Note');
+}
 \`\`\`
-~/Laputa/
-  project/
-  responsibility/
-  procedure/
-  note/
-  person/
-  event/
-  topic/
-\`\`\`
 
-Each file has frontmatter like:
 \`\`\`yaml
 title: Some Title
 is_a: Project
 status: Active
 \`\`\`
 
-## Related
+## Tables
+| Feature | Status | Priority |
+|---------|--------|----------|
+| Editor | Done | High |
+| Inspector | Done | High |
+| Git Integration | Done | Medium |
+| Mobile App | Planned | Low |
+
+## Horizontal Rule
+
+---
+
+## Wiki-Links
 See [[Stock Screener — EMA200 Wick Bounce]] for the experiment approach.
 Contact [[Matteo Cellini]] for sponsorship data.
+Link to [[Grow Newsletter]] responsibility.
+
+## Paragraphs & Spacing
+This is a normal paragraph with enough text to test line wrapping and spacing between elements. The paragraph should have comfortable line height and spacing from the heading above.
+
+And this is a second paragraph to verify inter-paragraph spacing is correct. Good typography requires consistent vertical rhythm throughout the document.
 `,
   '/Users/luca/Laputa/responsibility/grow-newsletter.md': `---
 title: Grow Newsletter
