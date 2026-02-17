@@ -177,25 +177,19 @@ export function Sidebar({ entries, selection, onSelect, onSelectNote, modifiedCo
                 onClick={() => onSelect({ kind: 'sectionGroup', type })}
               >
                 <div className="flex items-center" style={{ gap: 8 }}>
-                  <button
-                    className="flex shrink-0 items-center border-none bg-transparent p-0 text-inherit cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toggleSection(type)
-                    }}
-                    aria-label={isCollapsed ? `Expand ${label}` : `Collapse ${label}`}
-                  >
-                    {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-                  </button>
-                  <Icon size={18} weight="bold" />
-                  <span className="text-[13px] font-semibold">{label}</span>
+                  <Icon size={16} />
+                  <span className="text-[13px] font-medium">{label}</span>
                 </div>
-                <span
-                  className="flex items-center justify-center bg-primary text-primary-foreground"
-                  style={{ height: 20, borderRadius: 9999, padding: '0 6px', fontSize: 10 }}
+                <button
+                  className="flex shrink-0 items-center border-none bg-transparent p-0 text-inherit cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleSection(type)
+                  }}
+                  aria-label={isCollapsed ? `Expand ${label}` : `Collapse ${label}`}
                 >
-                  {items.length}
-                </span>
+                  {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                </button>
               </div>
 
               {/* Children items */}
