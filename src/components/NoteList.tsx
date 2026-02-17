@@ -61,16 +61,20 @@ function getDisplayDate(entry: VaultEntry): number | null {
 
 function refsMatch(refs: string[], entry: VaultEntry): boolean {
   const stem = entry.path.replace(/^.*\/Laputa\//, '').replace(/\.md$/, '')
+  const fileStem = entry.filename.replace(/\.md$/, '')
   return refs.some((ref) => {
-    const inner = ref.replace(/^\[\[/, '').replace(/\]\]$/, '')
-    return inner === stem
+    const raw = ref.replace(/^\[\[/, '').replace(/\]\]$/, '')
+    const inner = raw.split('|')[0]
+    return inner === stem || inner.split('/').pop() === fileStem
   })
 }
 
 function resolveRefs(refs: string[], entries: VaultEntry[]): VaultEntry[] {
   return refs
     .map((ref) => {
-      const inner = ref.replace(/^\[\[/, '').replace(/\]\]$/, '')
+      // Strip [[ ]] and remove alias (|display text) if present
+      const raw = ref.replace(/^\[\[/, '').replace(/\]\]$/, '')
+      const inner = raw.split('|')[0]
       return entries.find((e) => {
         const stem = e.path.replace(/^.*\/Laputa\//, '').replace(/\.md$/, '')
         if (stem === inner) return true
