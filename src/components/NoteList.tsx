@@ -132,6 +132,14 @@ function buildRelationshipGroups(
   const seen = new Set<string>([entity.path])
   const rels = entity.relationships ?? {}
 
+  // 0. "Instances" — for type documents, show all entries of this type
+  if (entity.isA === 'Type') {
+    const instances = allEntries
+      .filter((e) => e.isA === entity.title && !seen.has(e.path))
+      .sort(sortByModified)
+    addGroup(groups, 'Instances', instances, seen)
+  }
+
   // 1. "Has" — from the entity's own relationships map
   const hasRefs = rels['Has'] ?? []
   if (hasRefs.length > 0) {
