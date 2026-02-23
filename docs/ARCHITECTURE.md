@@ -69,13 +69,13 @@ Laputa is a personal knowledge and life management desktop app. It reads a vault
 │Events  │             │                         │            │
 │Topics  │             │                         │            │
 ├────────┴─────────────┴─────────────────────────┴────────────┤
-│ StatusBar: v0.4.2 │ main │ Synced 2m ago        1,247 notes│
+│ StatusBar: v0.4.2 │ main │ Synced 2m ago │ 3 pending  notes│
 └─────────────────────────────────────────────────────────────┘
 ```
 
 - **Sidebar** (150-400px, resizable): Top-level filters (All Notes, Favorites) and collapsible section groups (Projects, Experiments, Responsibilities, etc.)
-- **Note List** (200-500px, resizable): Filtered list of notes matching the sidebar selection. Shows snippets, modified dates, and relationship groups. The flat list view (All Notes, type sections, etc.) uses **react-virtuoso** for virtual rendering — only visible items are in the DOM, enabling smooth scrolling with 9000+ notes. Entity/relationship views are not virtualized (groups are small).
-- **Editor** (flex, fills remaining space): Tab bar, breadcrumb bar with word count and modified indicator, BlockNote editor with wikilink support. Can toggle to diff view for modified files.
+- **Note List** (200-500px, resizable): Filtered list of notes matching the sidebar selection. Shows snippets, modified dates, relationship groups, and orange dot indicators for uncommitted modified notes.
+- **Editor** (flex, fills remaining space): Tab bar (with orange modified dots on dirty tabs), breadcrumb bar with word count and modified indicator, BlockNote editor with wikilink support. Can toggle to diff view for modified files.
 - **Inspector / AI Chat** (200-500px or 40px collapsed): Toggles between Inspector (frontmatter, relationships, backlinks, git history) and AI Chat panel. The Sparkle icon in the breadcrumb bar toggles between them.
 
 Panels are separated by `ResizeHandle` components that support drag-to-resize.

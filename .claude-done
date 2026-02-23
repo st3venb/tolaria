@@ -1,18 +1,20 @@
-Task: performance-note-list
-Summary: Implemented virtual list rendering for NoteList using react-virtuoso.
+Task: modified-notes-indicator
+Summary: Implemented visual indicators for uncommitted modified notes across the UI.
 
 Changes:
-- NoteList ListView now uses <Virtuoso> component instead of .map() for flat lists
-- Only visible items are rendered in the DOM (overscan: 200px)
-- EntityView (relationship groups) unchanged — groups are small (<100 items)
-- mock-tauri.ts generates 9000 bulk entries for testing
-- Test setup mocks react-virtuoso for JSDOM compatibility
-- 7 new tests covering large dataset rendering, search, sorting, filtering
-- Design file: design/performance-note-list.pen (4 frames)
-- Docs updated: ARCHITECTURE.md notes virtual rendering approach
+- NoteItem: Orange dot (accent-orange) before title for notes in git modified/added state
+- TabBar: Orange dot between title and close button for tabs with uncommitted changes
+- StatusBar: "N pending" counter with CircleDot icon when modified files exist
+- useEditorSave: Added onAfterSave callback to refresh modified files list after save
+- mock-tauri: Dynamically tracks saved files as modified, clears on commit
+- Design file: 3 frames showing NoteList, TabBar, and StatusBar indicator states
 
 Product decisions:
-- Only virtualized ListView (flat lists), not EntityView — relationship groups
-  are inherently small and do not need virtualization
-- Used overscan={200} for smooth scrolling experience
-- PinnedCard and TrashWarningBanner rendered as Virtuoso Header component
+- Used accent-orange (#D9730D) for the indicator dot to stand out from type-colored icons
+- Dot appears before title in NoteList (consistent with how editors show file state)
+- Dot appears between title and close button in TabBar (visible but non-intrusive)
+- StatusBar shows "N pending" text (not just a number) for clarity
+- Indicators disappear after git commit (mockHasChanges + mockSavedPaths cleared)
+
+Tests: 12 new tests covering NoteList (4), TabBar (3), StatusBar (3), useEditorSave (2)
+All 543 tests pass. Build succeeds. Code health gates passed.
