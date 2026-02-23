@@ -517,8 +517,8 @@ fn extract_is_a_value(line: &str) -> Option<&str> {
 /// Migrate a single file's frontmatter from `is_a`/`Is A` to `type`.
 /// Returns Ok(true) if the file was modified, Ok(false) if no migration needed.
 fn migrate_file_is_a_to_type(path: &Path) -> Result<bool, String> {
-    let content =
-        fs::read_to_string(path).map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
 
     if !content.starts_with("---\n") {
         return Ok(false);
@@ -2664,16 +2664,8 @@ References:
     #[test]
     fn test_migrate_vault() {
         let dir = TempDir::new().unwrap();
-        create_test_file(
-            dir.path(),
-            "note/a.md",
-            "---\nis_a: Note\n---\n# A\n",
-        );
-        create_test_file(
-            dir.path(),
-            "project/b.md",
-            "---\ntype: Project\n---\n# B\n",
-        );
+        create_test_file(dir.path(), "note/a.md", "---\nis_a: Note\n---\n# A\n");
+        create_test_file(dir.path(), "project/b.md", "---\ntype: Project\n---\n# B\n");
         create_test_file(
             dir.path(),
             "type/c.md",
