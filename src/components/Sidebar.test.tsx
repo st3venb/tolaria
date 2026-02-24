@@ -339,6 +339,23 @@ describe('Sidebar', () => {
     expect(badges.length).toBeGreaterThanOrEqual(1)
   })
 
+  it('shows Changes nav item when modifiedCount > 0', () => {
+    render(<Sidebar entries={[]} selection={defaultSelection} onSelect={() => {}} modifiedCount={5} />)
+    expect(screen.getByText('Changes')).toBeInTheDocument()
+  })
+
+  it('hides Changes nav item when modifiedCount is 0', () => {
+    render(<Sidebar entries={[]} selection={defaultSelection} onSelect={() => {}} modifiedCount={0} />)
+    expect(screen.queryByText('Changes')).not.toBeInTheDocument()
+  })
+
+  it('calls onSelect with changes filter when clicking Changes', () => {
+    const onSelect = vi.fn()
+    render(<Sidebar entries={[]} selection={defaultSelection} onSelect={onSelect} modifiedCount={3} />)
+    fireEvent.click(screen.getByText('Changes'))
+    expect(onSelect).toHaveBeenCalledWith({ kind: 'filter', filter: 'changes' })
+  })
+
   describe('dynamic custom type sections', () => {
     const entriesWithCustomTypes: VaultEntry[] = [
       ...mockEntries,
