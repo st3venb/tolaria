@@ -85,7 +85,7 @@ function StatusValue({ propKey, value, isEditing, onSave, onStartEdit }: {
   if (isEditing) {
     return (
       <input
-        className="w-full rounded border border-ring bg-muted px-2 py-1 text-[13px] text-foreground outline-none focus:border-primary"
+        className="w-full rounded border border-ring bg-muted px-2 py-1 text-[12px] text-foreground outline-none focus:border-primary"
         type="text" defaultValue={statusStr}
         onKeyDown={(e) => {
           if (e.key === 'Enter') onSave(propKey, (e.target as HTMLInputElement).value)
@@ -128,12 +128,12 @@ function AddPropertyForm({ onAdd, onCancel }: { onAdd: (key: string, value: stri
   return (
     <div className="mt-3 flex flex-col gap-2 rounded-md border border-border bg-muted p-3">
       <input
-        className="w-full rounded border border-ring bg-muted px-2 py-1 text-[13px] text-foreground outline-none focus:border-primary"
+        className="w-full rounded border border-ring bg-muted px-2 py-1 text-[12px] text-foreground outline-none focus:border-primary"
         type="text" placeholder="Property name" value={newKey}
         onChange={(e) => setNewKey(e.target.value)} onKeyDown={handleKeyDown} autoFocus
       />
       <input
-        className="w-full rounded border border-ring bg-muted px-2 py-1 text-[13px] text-foreground outline-none focus:border-primary"
+        className="w-full rounded border border-ring bg-muted px-2 py-1 text-[12px] text-foreground outline-none focus:border-primary"
         type="text" placeholder="Value" value={newValue}
         onChange={(e) => setNewValue(e.target.value)} onKeyDown={handleKeyDown}
       />

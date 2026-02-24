@@ -98,7 +98,7 @@ export function EditableValue({
   if (isEditing) {
     return (
       <input
-        className="w-full rounded border border-ring bg-muted px-2 py-1 text-[13px] text-foreground outline-none focus:border-primary"
+        className="w-full rounded border border-ring bg-muted px-2 py-1 text-[12px] text-foreground outline-none focus:border-primary"
         type="text"
         value={editValue}
         onChange={(e) => setEditValue(e.target.value)}
@@ -111,7 +111,7 @@ export function EditableValue({
 
   return (
     <span
-      className="min-w-0 cursor-pointer truncate rounded px-1 py-0.5 text-right text-secondary-foreground transition-colors hover:bg-muted"
+      className="min-w-0 cursor-pointer truncate rounded px-1 py-0.5 text-right text-[12px] text-secondary-foreground transition-colors hover:bg-muted"
       onClick={onStartEdit}
       title={value || 'Click to edit'}
     >
