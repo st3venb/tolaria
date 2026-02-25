@@ -1,4 +1,5 @@
 import { useMemo, useCallback } from 'react'
+import { useDragRegion } from '../hooks/useDragRegion'
 import type { VaultEntry, GitCommit } from '../types'
 import { cn } from '@/lib/utils'
 import { SlidersHorizontal, X } from '@phosphor-icons/react'
@@ -72,17 +73,18 @@ function useReferencedBy(entry: VaultEntry | null, entries: VaultEntry[]): Refer
 }
 
 function InspectorHeader({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  const { onMouseDown } = useDragRegion()
   return (
-    <div className="flex items-center border-b border-border" style={{ height: 45, padding: '0 12px', gap: 8 }} data-tauri-drag-region>
+    <div className="flex items-center border-b border-border" style={{ height: 52, padding: '0 12px', gap: 8, cursor: 'default' }} onMouseDown={onMouseDown}>
       {collapsed ? (
-        <button className="shrink-0 border-none bg-transparent p-1 text-muted-foreground cursor-pointer hover:text-foreground" onClick={onToggle} style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <button className="shrink-0 border-none bg-transparent p-1 text-muted-foreground cursor-pointer hover:text-foreground" onClick={onToggle}>
           <SlidersHorizontal size={16} />
         </button>
       ) : (
         <>
           <SlidersHorizontal size={16} className="shrink-0 text-muted-foreground" />
           <span className="flex-1 text-muted-foreground" style={{ fontSize: 13, fontWeight: 600 }}>Properties</span>
-          <button className="shrink-0 border-none bg-transparent p-1 text-muted-foreground cursor-pointer hover:text-foreground" onClick={onToggle} style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <button className="shrink-0 border-none bg-transparent p-1 text-muted-foreground cursor-pointer hover:text-foreground" onClick={onToggle}>
             <X size={16} />
           </button>
         </>

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, memo } from 'react'
+import { useDragRegion } from '../hooks/useDragRegion'
 import { Virtuoso } from 'react-virtuoso'
 import type { VaultEntry, SidebarSelection, ModifiedFile, NoteStatus } from '../types'
 import { Input } from '@/components/ui/input'
@@ -256,6 +257,7 @@ function NoteListInner({ entries, selection, selectedNote, allContent, modifiedF
   const [searchVisible, setSearchVisible] = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [sortPrefs, setSortPrefs] = useState<Record<string, SortConfig>>(loadSortPreferences)
+  const { onMouseDown: onDragMouseDown } = useDragRegion()
 
   const modifiedPathSet = useMemo(
     () => new Set((modifiedFiles ?? []).map((f) => f.path)),
@@ -296,7 +298,7 @@ function NoteListInner({ entries, selection, selectedNote, allContent, modifiedF
 
   return (
     <div className="flex flex-col overflow-hidden border-r border-border bg-card text-foreground" style={{ height: '100%' }}>
-      <div className="flex h-[45px] shrink-0 items-center justify-between border-b border-border px-4" data-tauri-drag-region style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+      <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-border px-4" onMouseDown={onDragMouseDown} style={{ cursor: 'default' }}>
         <h3 className="m-0 min-w-0 flex-1 truncate text-[14px] font-semibold">{resolveHeaderTitle(selection, typeDocument)}</h3>
         <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {!isEntityView && <SortDropdown groupLabel="__list__" current={listSort} direction={listDirection} onChange={handleSortChange} />}

@@ -1,4 +1,5 @@
 import { memo, useState, useRef, useCallback, useEffect } from 'react'
+import { useDragRegion } from '../hooks/useDragRegion'
 import type { VaultEntry, NoteStatus } from '../types'
 import { cn } from '@/lib/utils'
 import { X } from 'lucide-react'
@@ -327,12 +328,12 @@ export const TabBar = memo(function TabBar({
 }: TabBarProps) {
   const { dragIndex, dropIndex, handleDragStart, handleDragEnd, handleDragOver, handleDrop, handleBarDragLeave } = useTabDrag(onReorderTabs)
   const [editingPath, setEditingPath] = useState<string | null>(null)
+  const { onMouseDown: onDragMouseDown } = useDragRegion()
 
   return (
     <div
       className="flex shrink-0 items-stretch"
-      style={{ height: 45, background: 'var(--sidebar)', WebkitAppRegion: 'drag' } as React.CSSProperties}
-      data-tauri-drag-region
+      style={{ height: 52, background: 'var(--sidebar)' } as React.CSSProperties}
       onDragLeave={handleBarDragLeave}
     >
       <NavButtons canGoBack={canGoBack} canGoForward={canGoForward} onGoBack={onGoBack} onGoForward={onGoForward} />
@@ -359,7 +360,7 @@ export const TabBar = memo(function TabBar({
           }}
         />
       ))}
-      <div className="flex-1" style={{ borderBottom: '1px solid var(--border)' }} />
+      <div className="flex-1" style={{ borderBottom: '1px solid var(--border)', cursor: 'default' }} onMouseDown={onDragMouseDown} />
       <TabBarActions onCreateNote={onCreateNote} />
     </div>
   )

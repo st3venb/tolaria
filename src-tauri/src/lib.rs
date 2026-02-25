@@ -209,6 +209,11 @@ pub fn run() {
                         .level(log::LevelFilter::Info)
                         .build(),
                 )?;
+                // Open devtools automatically in debug builds
+                use tauri::Manager;
+                if let Some(window) = app.get_webview_window("main") {
+                    window.open_devtools();
+                }
             }
 
             app.handle().plugin(tauri_plugin_dialog::init())?;

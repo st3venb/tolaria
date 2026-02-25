@@ -20,6 +20,7 @@ import {
   type SectionGroup, isSelectionActive,
   NavItem, SectionContent, type SectionContentProps, VisibilityPopover,
 } from './SidebarParts'
+import { useDragRegion } from '../hooks/useDragRegion'
 
 interface SidebarProps {
   entries: VaultEntry[]
@@ -172,12 +173,13 @@ function CommitButton({ modifiedCount, onClick }: { modifiedCount: number; onCli
 }
 
 function SidebarTitleBar({ onCollapse }: { onCollapse?: () => void }) {
+  const { onMouseDown } = useDragRegion()
   return (
-    <div className="shrink-0 flex items-center justify-end border-b border-border" style={{ height: 38, WebkitAppRegion: 'drag', padding: '0 8px' } as React.CSSProperties} data-tauri-drag-region>
+    <div className="shrink-0 flex items-center justify-end border-b border-border" style={{ height: 52, padding: '0 8px', paddingLeft: 80, cursor: 'default' } as React.CSSProperties} onMouseDown={onMouseDown}>
       {onCollapse && (
         <button
           className="flex shrink-0 cursor-pointer items-center justify-center rounded border-none bg-transparent p-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          style={{ width: 24, height: 24, WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          style={{ width: 24, height: 24 }}
           onClick={onCollapse}
           aria-label="Collapse sidebar"
           title="Collapse sidebar"
