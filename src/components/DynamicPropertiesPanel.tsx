@@ -229,22 +229,26 @@ function DisplayModeSelector({ propKey, currentMode, autoMode, onSelect }: {
             className="fixed z-[12001] min-w-[130px] rounded-md border border-border bg-background py-1 shadow-md"
             data-testid="display-mode-menu"
           >
-            {DISPLAY_MODE_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                className="flex w-full items-center gap-2 border-none bg-transparent px-3 py-1.5 text-left text-[12px] text-foreground transition-colors hover:bg-muted"
-                onClick={() => handleSelect(opt.value)}
-                data-testid={`display-mode-option-${opt.value}`}
-              >
-                <span className="w-3 text-center text-[10px]">
-                  {currentMode === opt.value ? '\u2713' : ''}
-                </span>
-                {opt.label}
-                {opt.value === autoMode && (
-                  <span className="ml-auto text-[10px] text-muted-foreground">auto</span>
-                )}
-              </button>
-            ))}
+            {DISPLAY_MODE_OPTIONS.map(opt => {
+              const OptIcon = DISPLAY_MODE_ICONS[opt.value]
+              return (
+                <button
+                  key={opt.value}
+                  className="flex w-full items-center gap-2 border-none bg-transparent px-3 py-1.5 text-left text-[12px] text-foreground transition-colors hover:bg-muted"
+                  onClick={() => handleSelect(opt.value)}
+                  data-testid={`display-mode-option-${opt.value}`}
+                >
+                  <span className="w-3 text-center text-[10px]">
+                    {currentMode === opt.value ? '\u2713' : ''}
+                  </span>
+                  <OptIcon className="size-3.5 text-muted-foreground" />
+                  {opt.label}
+                  {opt.value === autoMode && (
+                    <span className="ml-auto text-[10px] text-muted-foreground">auto</span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </>,
         document.body
@@ -421,8 +425,9 @@ function ReadOnlyType({ isA, customColorKey, onNavigate }: { isA?: string | null
   )
 }
 
-function TypeSelector({ isA, customColorKey, availableTypes, onUpdateProperty, onNavigate }: {
+function TypeSelector({ isA, customColorKey, availableTypes, typeColorKeys, onUpdateProperty, onNavigate }: {
   isA?: string | null; customColorKey?: string | null; availableTypes: string[]
+  typeColorKeys: Record<string, string | null>
   onUpdateProperty?: (key: string, value: FrontmatterValue) => void
   onNavigate?: (target: string) => void
 }) {
@@ -448,7 +453,10 @@ function TypeSelector({ isA, customColorKey, availableTypes, onUpdateProperty, o
           <SelectItem value={TYPE_NONE}>None</SelectItem>
           <SelectSeparator />
           {options.map(type => (
-            <SelectItem key={type} value={type}>{type}</SelectItem>
+            <SelectItem key={type} value={type}>
+              <Circle className="size-3" style={{ color: getTypeColor(type, typeColorKeys[type]), fill: getTypeColor(type, typeColorKeys[type]) }} />
+              {type}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -564,9 +572,12 @@ function reconcileListUpdate(
 
 function deriveTypeInfo(entries: VaultEntry[] | undefined, entryIsA: string | null) {
   const typeEntries = (entries ?? []).filter(e => e.isA === 'Type')
+  const typeColorKeys: Record<string, string | null> = {}
+  for (const e of typeEntries) { typeColorKeys[e.title] = e.color ?? null }
   return {
     availableTypes: typeEntries.map(e => e.title).sort((a, b) => a.localeCompare(b)),
-    customColorKey: entryIsA ? (typeEntries.find(e => e.title === entryIsA)?.color ?? null) : null,
+    customColorKey: entryIsA ? (typeColorKeys[entryIsA] ?? null) : null,
+    typeColorKeys,
   }
 }
 
@@ -606,7 +617,7 @@ function usePropertyPanelState(deps: PropertyPanelDeps) {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [displayOverrides, setDisplayOverrides] = useState(() => loadDisplayModeOverrides())
 
-  const { availableTypes, customColorKey } = useMemo(() => deriveTypeInfo(entries, entryIsA), [entries, entryIsA])
+  const { availableTypes, customColorKey, typeColorKeys } = useMemo(() => deriveTypeInfo(entries, entryIsA), [entries, entryIsA])
   const vaultStatuses = useMemo(() => collectVaultStatuses(entries), [entries])
   const propertyEntries = useMemo(() => Object.entries(frontmatter).filter(isVisibleProperty), [frontmatter])
 
@@ -637,7 +648,7 @@ function usePropertyPanelState(deps: PropertyPanelDeps) {
 
   return {
     editingKey, setEditingKey, showAddDialog, setShowAddDialog, displayOverrides,
-    availableTypes, customColorKey, vaultStatuses, propertyEntries,
+    availableTypes, customColorKey, typeColorKeys, vaultStatuses, propertyEntries,
     handleSaveValue, handleSaveList, handleAdd, handleDisplayModeChange,
   }
 }
@@ -657,7 +668,7 @@ export function DynamicPropertiesPanel({
 }) {
   const {
     editingKey, setEditingKey, showAddDialog, setShowAddDialog, displayOverrides,
-    availableTypes, customColorKey, vaultStatuses, propertyEntries,
+    availableTypes, customColorKey, typeColorKeys, vaultStatuses, propertyEntries,
     handleSaveValue, handleSaveList, handleAdd, handleDisplayModeChange,
   } = usePropertyPanelState({ entries, entryIsA: entry.isA, frontmatter, onUpdateProperty, onDeleteProperty, onAddProperty })
 
@@ -666,7 +677,7 @@ export function DynamicPropertiesPanel({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2">
-        <TypeSelector isA={entry.isA} customColorKey={customColorKey} availableTypes={availableTypes} onUpdateProperty={onUpdateProperty} onNavigate={onNavigate} />
+        <TypeSelector isA={entry.isA} customColorKey={customColorKey} availableTypes={availableTypes} typeColorKeys={typeColorKeys} onUpdateProperty={onUpdateProperty} onNavigate={onNavigate} />
         {propertyEntries.map(([key, value]) => (
           <PropertyRow
             key={key} propKey={key} value={value}
