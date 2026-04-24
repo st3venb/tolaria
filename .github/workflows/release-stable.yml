@@ -119,6 +119,9 @@ jobs:
           else
             sed -i "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
           fi
+          # MSI (WiX) requires numeric-only X.Y.Z.N versions (no pre-release suffixes).
+          MSI_VERSION=$(echo "$VERSION" | sed 's/-alpha\.\([0-9]*\)$/.\1/' | sed 's/-[^.]*$//')
+          echo "MSI_VERSION=$MSI_VERSION" >> "$GITHUB_ENV"
 
       - name: Import Apple Developer certificate into keychain
         if: runner.os == 'macOS'
@@ -256,7 +259,7 @@ jobs:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
-        run: pnpm tauri build --target ${{ matrix.target }}
+        run: pnpm tauri build --target ${{ matrix.target }} --config "{\"bundle\":{\"windows\":{\"wix\":{\"version\":\"${{ env.MSI_VERSION }}\"}}}}"
 
       - name: Upload .dmg
         if: runner.os == 'macOS'

@@ -172,17 +172,16 @@ jobs:
         shell: bash
         run: |
           VERSION="${{ needs.version.outputs.version }}"
-          # MSI requires numeric-only versions (X.Y.Z or X.Y.Z.N, each ≤ 65535).
-          # Convert "2026.4.24-alpha.5" → "2026.4.24.5" on Windows.
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            VERSION=$(echo "$VERSION" | sed 's/-alpha\.\([0-9]*\)$/.\1/')
-          fi
           jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > tmp.json && mv tmp.json src-tauri/tauri.conf.json
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
           else
             sed -i "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
           fi
+          # MSI (WiX) requires numeric-only X.Y.Z.N versions (no pre-release suffixes).
+          # Convert "2026.4.24-alpha.5" → "2026.4.24.5" for the WiX version field.
+          MSI_VERSION=$(echo "$VERSION" | sed 's/-alpha\.\([0-9]*\)$/.\1/' | sed 's/-[^.]*$//')
+          echo "MSI_VERSION=$MSI_VERSION" >> "$GITHUB_ENV"
 
       - name: Import Apple Developer certificate into keychain
         if: runner.os == 'macOS'
@@ -322,7 +321,7 @@ jobs:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
-        run: pnpm tauri build --target ${{ matrix.target }}
+        run: pnpm tauri build --target ${{ matrix.target }} --config "{\"bundle\":{\"windows\":{\"wix\":{\"version\":\"${{ env.MSI_VERSION }}\"}}}}"
 
       - name: Upload macOS updater artifacts (.tar.gz + .sig)
         if: runner.os == 'macOS'
