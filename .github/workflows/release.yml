@@ -198,6 +198,7 @@ jobs:
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
       - name: Validate telemetry env
+        if: runner.os == 'macOS'
         shell: bash
         env:
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
