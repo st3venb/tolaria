@@ -314,6 +314,7 @@ jobs:
 
       - name: Build Tauri app (Windows, unsigned)
         if: runner.os == 'Windows'
+        shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
@@ -321,7 +322,9 @@ jobs:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
-        run: pnpm tauri build --target ${{ matrix.target }} --config "{\"bundle\":{\"windows\":{\"wix\":{\"version\":\"${{ env.MSI_VERSION }}\"}}}}"
+        run: |
+          echo '{"bundle":{"windows":{"wix":{"version":"'"$MSI_VERSION"'"}}}}' > wix-override.json
+          pnpm tauri build --target ${{ matrix.target }} --config wix-override.json
 
       - name: Upload macOS updater artifacts (.tar.gz + .sig)
         if: runner.os == 'macOS'
