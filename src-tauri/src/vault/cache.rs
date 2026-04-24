@@ -150,6 +150,7 @@ fn parse_porcelain_line(line: &str) -> Option<(&str, String)> {
 fn collect_paths_from_diff(stdout: &str) -> Vec<String> {
     stdout
         .lines()
+        .map(|line| line.trim())
         .filter(|line| !line.is_empty() && !has_hidden_segment(line))
         .map(|line| line.to_string())
         .collect()
@@ -168,8 +169,10 @@ fn collect_paths_from_porcelain(stdout: &str) -> Vec<String> {
 }
 
 /// Return true if any path segment starts with `.` (hidden file/directory).
+/// Splits on both `/` and `\` to handle Windows-style paths.
 fn has_hidden_segment(path: &str) -> bool {
-    path.split('/').any(|seg| seg.starts_with('.'))
+    path.split(['/', '\\'])
+        .any(|seg| seg.starts_with('.'))
 }
 
 fn git_changed_files(vault: &Path, from_hash: &str, to_hash: &str) -> Vec<String> {
@@ -446,13 +449,15 @@ fn write_cache(
 }
 
 /// Normalize an absolute path to a relative path for comparison with git output.
+/// Normalizes backslashes to forward slashes so Windows paths match correctly.
 fn to_relative_path(abs_path: &str, vault: &Path) -> String {
-    let vault_str = vault.to_string_lossy();
+    let normalized = abs_path.replace('\\', "/");
+    let vault_str = vault.to_string_lossy().replace('\\', "/");
     let with_slash = format!("{}/", vault_str);
-    abs_path
+    normalized
         .strip_prefix(&with_slash)
-        .or_else(|| abs_path.strip_prefix(vault_str.as_ref()))
-        .unwrap_or(abs_path)
+        .or_else(|| normalized.strip_prefix(vault_str.as_str()))
+        .unwrap_or(&normalized)
         .to_string()
 }
 
@@ -1418,5 +1423,189 @@ mod tests {
             !cache_path(vault).exists(),
             "active writer lock must prevent a competing cache write"
         );
+    }
+
+    // --- Task 4.3: to_relative_path() with various separator styles ---
+
+    #[test]
+    fn test_to_relative_path_forward_slashes() {
+        let vault = Path::new("/Users/test/MyVault");
+        assert_eq!(
+            to_relative_path("/Users/test/MyVault/notes/hello.md", vault),
+            "notes/hello.md"
+        );
+    }
+
+    #[test]
+    fn test_to_relative_path_backslashes() {
+        let vault = Path::new("/Users/test/MyVault");
+        assert_eq!(
+            to_relative_path("\\Users\\test\\MyVault\\notes\\hello.md", vault),
+            "notes/hello.md"
+        );
+    }
+
+    #[test]
+    fn test_to_relative_path_mixed_separators() {
+        let vault = Path::new("/Users/test/MyVault");
+        assert_eq!(
+            to_relative_path("/Users/test\\MyVault\\notes/hello.md", vault),
+            "notes/hello.md"
+        );
+    }
+
+    #[test]
+    fn test_to_relative_path_windows_style_vault() {
+        let vault = Path::new("C:\\Users\\test\\MyVault");
+        assert_eq!(
+            to_relative_path("C:\\Users\\test\\MyVault\\notes\\hello.md", vault),
+            "notes/hello.md"
+        );
+    }
+
+    #[test]
+    fn test_to_relative_path_no_match_returns_normalized() {
+        let vault = Path::new("/Users/test/MyVault");
+        assert_eq!(
+            to_relative_path("/other/path/file.md", vault),
+            "/other/path/file.md"
+        );
+    }
+
+    #[test]
+    fn test_has_hidden_segment_backslash_path() {
+        assert!(has_hidden_segment("notes\\.git\\config"));
+        assert!(has_hidden_segment(".hidden\\file.md"));
+        assert!(!has_hidden_segment("notes\\visible\\file.md"));
+    }
+
+    // --- Task 4.4: collect_paths_from_diff/porcelain with CRLF ---
+
+    #[test]
+    fn test_collect_paths_from_diff_crlf() {
+        let output = "notes/a.md\r\nnotes/b.md\r\n";
+        let paths = collect_paths_from_diff(output);
+        assert_eq!(paths, vec!["notes/a.md", "notes/b.md"]);
+    }
+
+    #[test]
+    fn test_collect_paths_from_diff_lf() {
+        let output = "notes/a.md\nnotes/b.md\n";
+        let paths = collect_paths_from_diff(output);
+        assert_eq!(paths, vec!["notes/a.md", "notes/b.md"]);
+    }
+
+    #[test]
+    fn test_collect_paths_from_diff_filters_hidden_crlf() {
+        let output = "notes/a.md\r\n.git/config\r\nnotes/b.md\r\n";
+        let paths = collect_paths_from_diff(output);
+        assert_eq!(paths, vec!["notes/a.md", "notes/b.md"]);
+    }
+
+    #[test]
+    fn test_collect_paths_from_porcelain_crlf() {
+        let output = " M notes/a.md\r\n?? notes/b.md\r\n";
+        let paths = collect_paths_from_porcelain(output);
+        assert_eq!(paths, vec!["notes/a.md", "notes/b.md"]);
+    }
+
+    #[test]
+    fn test_collect_paths_from_porcelain_lf() {
+        let output = " M notes/a.md\n?? notes/b.md\n";
+        let paths = collect_paths_from_porcelain(output);
+        assert_eq!(paths, vec!["notes/a.md", "notes/b.md"]);
+    }
+
+    #[test]
+    fn test_collect_paths_from_porcelain_filters_hidden_crlf() {
+        let output = " M notes/a.md\r\n M .hidden/secret.md\r\n?? notes/b.md\r\n";
+        let paths = collect_paths_from_porcelain(output);
+        assert_eq!(paths, vec!["notes/a.md", "notes/b.md"]);
+    }
+}
+
+// --- Property-based tests (proptest) ---
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// Generate a vault path with 1-4 segments joined by `/`.
+    fn vault_path_strategy() -> impl Strategy<Value = String> {
+        prop::collection::vec("[a-zA-Z0-9_-]{1,12}", 1..=4)
+            .prop_map(|segs| format!("/{}", segs.join("/")))
+    }
+
+    /// Generate a relative file path with 1-3 segments plus a `.md` extension.
+    fn relative_file_path() -> impl Strategy<Value = String> {
+        prop::collection::vec("[a-zA-Z0-9_-]{1,12}", 1..=3)
+            .prop_map(|segs| format!("{}.md", segs.join("/")))
+    }
+
+    // Feature: windows-platform-support, Property 1: Path separator normalization preserves relative path extraction
+    // **Validates: Requirements 8.3, 9.3**
+    proptest! {
+        #[test]
+        fn prop_to_relative_path_consistent_across_separators(
+            vault_str in vault_path_strategy(),
+            rel_str in relative_file_path(),
+        ) {
+            let vault = Path::new(&vault_str);
+            let canonical = format!("{}/{}", vault_str, rel_str);
+            let expected = to_relative_path(&canonical, vault);
+
+            // Build the same absolute path with backslashes
+            let backslash_path = format!("{}/{}", vault_str, rel_str).replace('/', "\\");
+            let result_backslash = to_relative_path(&backslash_path, vault);
+            prop_assert_eq!(&result_backslash, &expected,
+                "backslash variant must match: vault={}, rel={}", vault_str, rel_str);
+
+            // Build with mixed separators
+            let mixed_path = format!("{}/{}", vault_str, rel_str)
+                .chars()
+                .enumerate()
+                .map(|(i, c)| if c == '/' && i % 2 == 0 { '\\' } else { c })
+                .collect::<String>();
+            let result_mixed = to_relative_path(&mixed_path, vault);
+            prop_assert_eq!(&result_mixed, &expected,
+                "mixed variant must match: vault={}, rel={}", vault_str, rel_str);
+        }
+    }
+
+    /// Generate a list of file paths for git output simulation.
+    fn file_path_list() -> impl Strategy<Value = Vec<String>> {
+        prop::collection::vec(relative_file_path(), 1..=10)
+    }
+
+    // Feature: windows-platform-support, Property 2: Git output parsing handles CRLF line endings
+    // **Validates: Requirements 9.2**
+    proptest! {
+        #[test]
+        fn prop_git_output_crlf_matches_lf(
+            paths in file_path_list(),
+        ) {
+            // Test collect_paths_from_diff
+            let lf_output = paths.join("\n");
+            let crlf_output = paths.join("\r\n");
+            let lf_result = collect_paths_from_diff(&lf_output);
+            let crlf_result = collect_paths_from_diff(&crlf_output);
+            prop_assert_eq!(&lf_result, &crlf_result,
+                "diff: CRLF must parse identically to LF");
+
+            // Test collect_paths_from_porcelain
+            let lf_porcelain: String = paths.iter()
+                .map(|p| format!(" M {}", p))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let crlf_porcelain: String = paths.iter()
+                .map(|p| format!(" M {}", p))
+                .collect::<Vec<_>>()
+                .join("\r\n");
+            let lf_porc_result = collect_paths_from_porcelain(&lf_porcelain);
+            let crlf_porc_result = collect_paths_from_porcelain(&crlf_porcelain);
+            prop_assert_eq!(&lf_porc_result, &crlf_porc_result,
+                "porcelain: CRLF must parse identically to LF");
+        }
     }
 }

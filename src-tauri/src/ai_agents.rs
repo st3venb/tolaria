@@ -134,10 +134,16 @@ fn find_codex_binary() -> Result<PathBuf, String> {
 }
 
 fn find_codex_binary_on_path() -> Result<Option<PathBuf>, String> {
-    let output = Command::new("which")
-        .arg("codex")
+    let (cmd, arg) = if cfg!(target_os = "windows") {
+        ("where.exe", "codex")
+    } else {
+        ("which", "codex")
+    };
+
+    let output = Command::new(cmd)
+        .arg(arg)
         .output()
-        .map_err(|error| format!("Failed to run `which codex`: {error}"))?;
+        .map_err(|error| format!("Failed to run `{cmd} {arg}`: {error}"))?;
 
     if output.status.success() {
         let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -151,12 +157,34 @@ fn find_codex_binary_on_path() -> Result<Option<PathBuf>, String> {
 
 fn codex_binary_candidates() -> Vec<PathBuf> {
     let home = dirs::home_dir().unwrap_or_default();
+    if cfg!(target_os = "windows") {
+        windows_codex_candidates(&home)
+    } else {
+        unix_codex_candidates(&home)
+    }
+}
+
+fn unix_codex_candidates(home: &std::path::Path) -> Vec<PathBuf> {
     vec![
         home.join(".local/bin/codex"),
         home.join(".npm/bin/codex"),
         PathBuf::from("/usr/local/bin/codex"),
         PathBuf::from("/opt/homebrew/bin/codex"),
         PathBuf::from("/Applications/Codex.app/Contents/Resources/codex"),
+    ]
+}
+
+fn windows_codex_candidates(home: &std::path::Path) -> Vec<PathBuf> {
+    let app_data = std::env::var("APPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| home.join("AppData").join("Roaming"));
+    let local_app_data = std::env::var("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| home.join("AppData").join("Local"));
+
+    vec![
+        app_data.join("npm").join("codex.cmd"),
+        local_app_data.join("Programs").join("codex").join("codex.exe"),
     ]
 }
 
@@ -479,5 +507,58 @@ mod tests {
         let mapped = map_claude_event(crate::claude_cli::ClaudeStreamEvent::Done);
 
         assert!(matches!(mapped, Some(AiAgentStreamEvent::Done)));
+    }
+
+    #[test]
+    fn unix_codex_candidates_have_no_exe_extensions() {
+        let home = PathBuf::from("/home/testuser");
+        let candidates = unix_codex_candidates(&home);
+
+        for candidate in &candidates {
+            let name = candidate.file_name().unwrap().to_string_lossy();
+            assert!(
+                !name.ends_with(".exe") && !name.ends_with(".cmd"),
+                "Unix candidate should not have .exe/.cmd extension: {}",
+                candidate.display()
+            );
+        }
+
+        assert!(candidates.contains(&home.join(".local/bin/codex")));
+        assert!(candidates.contains(&home.join(".npm/bin/codex")));
+        assert!(candidates.contains(&PathBuf::from("/usr/local/bin/codex")));
+        assert!(candidates.contains(&PathBuf::from("/opt/homebrew/bin/codex")));
+    }
+
+    #[test]
+    fn windows_codex_candidates_have_exe_or_cmd_extensions() {
+        let home = PathBuf::from("C:\\Users\\testuser");
+        let candidates = windows_codex_candidates(&home);
+
+        for candidate in &candidates {
+            let name = candidate.file_name().unwrap().to_string_lossy();
+            assert!(
+                name.ends_with(".exe") || name.ends_with(".cmd"),
+                "Windows candidate must have .exe or .cmd extension: {}",
+                candidate.display()
+            );
+        }
+
+        assert!(!candidates.is_empty());
+    }
+
+    #[test]
+    fn windows_codex_candidates_include_expected_paths() {
+        let home = PathBuf::from("C:\\Users\\testuser");
+        let candidates = windows_codex_candidates(&home);
+
+        let has_npm_cmd = candidates
+            .iter()
+            .any(|p| p.to_string_lossy().contains("npm") && p.to_string_lossy().contains("codex.cmd"));
+        let has_programs_exe = candidates
+            .iter()
+            .any(|p| p.to_string_lossy().contains("Programs") && p.to_string_lossy().contains("codex.exe"));
+
+        assert!(has_npm_cmd, "Should include APPDATA/npm/codex.cmd");
+        assert!(has_programs_exe, "Should include LOCALAPPDATA/Programs/codex/codex.exe");
     }
 }

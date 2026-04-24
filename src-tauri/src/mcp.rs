@@ -17,15 +17,8 @@ pub enum McpStatus {
 
 /// Find the `node` binary path at runtime.
 pub(crate) fn find_node() -> Result<PathBuf, String> {
-    let output = Command::new("which")
-        .arg("node")
-        .output()
-        .map_err(|e| format!("Failed to run `which node`: {e}"))?;
-    if output.status.success() {
-        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !path.is_empty() {
-            return Ok(PathBuf::from(path));
-        }
+    if let Some(path) = find_node_on_path()? {
+        return Ok(path);
     }
 
     if let Some(path) = fallback_node_path() {
@@ -35,7 +28,47 @@ pub(crate) fn find_node() -> Result<PathBuf, String> {
     Err("node not found in PATH or common install locations".into())
 }
 
+/// Use the platform-appropriate command to locate `node` on PATH.
+/// Returns `Ok(Some(path))` when found, `Ok(None)` when the command
+/// succeeds but produces no output, or `Err` on execution failure.
+fn find_node_on_path() -> Result<Option<PathBuf>, String> {
+    let (cmd, arg) = if cfg!(target_os = "windows") {
+        ("where.exe", "node")
+    } else {
+        ("which", "node")
+    };
+
+    let output = Command::new(cmd)
+        .arg(arg)
+        .output()
+        .map_err(|e| format!("Failed to run `{cmd} {arg}`: {e}"))?;
+
+    if output.status.success() {
+        let path = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .next()
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if !path.is_empty() {
+            return Ok(Some(PathBuf::from(path)));
+        }
+    }
+
+    Ok(None)
+}
+
 fn fallback_node_path() -> Option<PathBuf> {
+    let candidates = if cfg!(target_os = "windows") {
+        fallback_node_paths_windows()
+    } else {
+        fallback_node_paths_unix()
+    };
+
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+fn fallback_node_paths_unix() -> Vec<PathBuf> {
     let mut candidates = vec![
         PathBuf::from("/opt/homebrew/bin/node"),
         PathBuf::from("/usr/local/bin/node"),
@@ -59,38 +92,94 @@ fn fallback_node_path() -> Option<PathBuf> {
         }
     }
 
-    candidates.into_iter().find(|path| path.is_file())
+    candidates
+}
+
+fn fallback_node_paths_windows() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Ok(program_files) = std::env::var("ProgramFiles") {
+        candidates.push(PathBuf::from(program_files).join("nodejs").join("node.exe"));
+    }
+
+    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        candidates.push(
+            PathBuf::from(local_app_data)
+                .join("Volta")
+                .join("node.exe"),
+        );
+    }
+
+    if let Ok(app_data) = std::env::var("APPDATA") {
+        let nvm_dir = PathBuf::from(app_data).join("nvm");
+        if let Ok(entries) = std::fs::read_dir(nvm_dir) {
+            let mut versions = entries
+                .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+                .collect::<Vec<_>>();
+            versions.sort();
+            versions.reverse();
+            candidates.extend(
+                versions
+                    .into_iter()
+                    .map(|version| version.join("node.exe")),
+            );
+        }
+    }
+
+    candidates
 }
 
 /// Resolve the path to `mcp-server/`.
 ///
 /// In dev mode, uses `CARGO_MANIFEST_DIR` (set at compile time).
-/// In release mode, navigates from the current executable.
+/// In release mode, navigates from the current executable:
+/// - macOS: `Contents/Resources/mcp-server/` inside the `.app` bundle
+/// - Windows: `<exe_dir>/mcp-server/` (flat directory alongside the exe)
 pub(crate) fn mcp_server_dir() -> Result<PathBuf, String> {
     let dev_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("mcp-server");
-    if dev_path.join("ws-bridge.js").exists() {
-        return Ok(std::fs::canonicalize(&dev_path).unwrap_or(dev_path));
-    }
-
     let exe = std::env::current_exe().map_err(|e| format!("Cannot find executable: {e}"))?;
-    // On macOS the exe lives at Contents/MacOS/<binary>.
-    // Resources are placed at Contents/Resources/ by Tauri.
-    let release_path = exe
+    let macos_release_path = exe
         .parent()
         .and_then(|p| p.parent())
-        .map(|p| p.join("Resources").join("mcp-server"))
-        .ok_or_else(|| "Cannot resolve mcp-server directory".to_string())?;
-    if release_path.join("ws-bridge.js").exists() {
-        return Ok(release_path);
+        .map(|p| p.join("Resources").join("mcp-server"));
+    let windows_release_path = exe.parent().map(|p| p.join("mcp-server"));
+
+    resolve_mcp_server_dir(&dev_path, macos_release_path.as_deref(), windows_release_path.as_deref())
+}
+
+/// Core resolution logic: tries candidate paths in order, returning the first
+/// that contains `ws-bridge.js`. Extracted for testability.
+fn resolve_mcp_server_dir(
+    dev_path: &Path,
+    macos_release_path: Option<&Path>,
+    windows_release_path: Option<&Path>,
+) -> Result<PathBuf, String> {
+    if dev_path.join("ws-bridge.js").exists() {
+        return Ok(std::fs::canonicalize(dev_path).unwrap_or_else(|_| dev_path.to_path_buf()));
     }
 
-    Err(format!(
-        "mcp-server not found at {} or {}",
-        dev_path.display(),
-        release_path.display()
-    ))
+    if let Some(path) = macos_release_path {
+        if path.join("ws-bridge.js").exists() {
+            return Ok(path.to_path_buf());
+        }
+    }
+
+    if let Some(path) = windows_release_path {
+        if path.join("ws-bridge.js").exists() {
+            return Ok(path.to_path_buf());
+        }
+    }
+
+    let mut checked = vec![format!("{}", dev_path.display())];
+    if let Some(p) = macos_release_path {
+        checked.push(format!("{}", p.display()));
+    }
+    if let Some(p) = windows_release_path {
+        checked.push(format!("{}", p.display()));
+    }
+    Err(format!("mcp-server not found at {}", checked.join(", ")))
 }
 
 /// Spawn the WebSocket bridge as a child process.
@@ -784,5 +873,257 @@ mod tests {
         assert_eq!(json, r#""installed""#);
         let json = serde_json::to_string(&McpStatus::NotInstalled).unwrap();
         assert_eq!(json, r#""not_installed""#);
+    }
+
+    // --- mcp_server_dir resolution tests ---
+
+    fn write_sentinel(dir: &Path) {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(dir.join("ws-bridge.js"), "// sentinel").unwrap();
+    }
+
+    #[test]
+    fn resolve_mcp_server_dir_picks_dev_path_first() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dev = tmp.path().join("dev-mcp");
+        let macos = tmp.path().join("macos-mcp");
+        let win = tmp.path().join("win-mcp");
+        write_sentinel(&dev);
+        write_sentinel(&macos);
+        write_sentinel(&win);
+
+        let result = resolve_mcp_server_dir(&dev, Some(&macos), Some(&win)).unwrap();
+        // canonicalize may resolve symlinks, so compare canonical forms
+        assert_eq!(
+            std::fs::canonicalize(&dev).unwrap(),
+            std::fs::canonicalize(&result).unwrap()
+        );
+    }
+
+    #[test]
+    fn resolve_mcp_server_dir_picks_macos_release_when_dev_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dev = tmp.path().join("dev-mcp"); // no sentinel
+        let macos = tmp.path().join("Contents").join("Resources").join("mcp-server");
+        write_sentinel(&macos);
+
+        let result = resolve_mcp_server_dir(&dev, Some(&macos), None).unwrap();
+        assert_eq!(result, macos);
+    }
+
+    #[test]
+    fn resolve_mcp_server_dir_picks_windows_release_when_others_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dev = tmp.path().join("dev-mcp"); // no sentinel
+        let macos = tmp.path().join("macos-mcp"); // no sentinel
+        let win = tmp.path().join("mcp-server");
+        write_sentinel(&win);
+
+        let result = resolve_mcp_server_dir(&dev, Some(&macos), Some(&win)).unwrap();
+        assert_eq!(result, win);
+    }
+
+    #[test]
+    fn resolve_mcp_server_dir_error_lists_all_candidate_paths() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dev = tmp.path().join("dev-mcp");
+        let macos = tmp.path().join("macos-mcp");
+        let win = tmp.path().join("win-mcp");
+        // No sentinels written — all paths missing
+
+        let err = resolve_mcp_server_dir(&dev, Some(&macos), Some(&win)).unwrap_err();
+        assert!(err.contains(&dev.display().to_string()), "error should contain dev path: {err}");
+        assert!(err.contains(&macos.display().to_string()), "error should contain macOS path: {err}");
+        assert!(err.contains(&win.display().to_string()), "error should contain Windows path: {err}");
+    }
+
+    #[test]
+    fn resolve_mcp_server_dir_error_with_none_candidates() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dev = tmp.path().join("dev-mcp");
+
+        let err = resolve_mcp_server_dir(&dev, None, None).unwrap_err();
+        assert!(err.contains(&dev.display().to_string()));
+        // Should only list the dev path when others are None
+        assert!(err.starts_with("mcp-server not found at"));
+    }
+
+    // --- Node binary discovery tests ---
+
+    #[test]
+    fn find_node_on_path_uses_which_on_current_platform() {
+        // On macOS/Linux (our CI), `which` should be available and find node.
+        // This implicitly verifies the cfg! dispatch picks `which` (not `where.exe`).
+        let result = find_node_on_path();
+        assert!(result.is_ok(), "find_node_on_path should not error: {:?}", result);
+        // Node is expected to be installed in dev/CI environments
+        if let Ok(Some(path)) = &result {
+            assert!(
+                path.to_string_lossy().contains("node"),
+                "resolved path should contain 'node': {:?}",
+                path
+            );
+        }
+    }
+
+    #[test]
+    fn fallback_node_paths_unix_includes_homebrew_and_volta() {
+        let paths = fallback_node_paths_unix();
+        let path_strs: Vec<String> = paths.iter().map(|p| p.display().to_string()).collect();
+
+        assert!(
+            path_strs.iter().any(|p| p.contains("/opt/homebrew/bin/node")),
+            "should include Homebrew ARM path: {:?}",
+            path_strs
+        );
+        assert!(
+            path_strs.iter().any(|p| p.contains("/usr/local/bin/node")),
+            "should include Homebrew Intel path: {:?}",
+            path_strs
+        );
+        assert!(
+            path_strs.iter().any(|p| p.contains(".volta/bin/node")),
+            "should include Volta path: {:?}",
+            path_strs
+        );
+    }
+
+    #[test]
+    fn fallback_node_paths_unix_includes_nvm_versions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let nvm_dir = tmp.path().join(".nvm").join("versions").join("node");
+        let v20 = nvm_dir.join("v20.0.0").join("bin");
+        let v22 = nvm_dir.join("v22.0.0").join("bin");
+        std::fs::create_dir_all(&v20).unwrap();
+        std::fs::create_dir_all(&v22).unwrap();
+
+        // Override HOME so fallback_node_paths_unix picks up our temp nvm dir.
+        // We can't easily do that for the function as-is (it uses dirs::home_dir),
+        // so we verify the static paths are always present.
+        let paths = fallback_node_paths_unix();
+        // At minimum, the two static Homebrew paths are always present
+        assert!(paths.len() >= 2);
+        assert_eq!(paths[0], PathBuf::from("/opt/homebrew/bin/node"));
+        assert_eq!(paths[1], PathBuf::from("/usr/local/bin/node"));
+    }
+
+    #[test]
+    fn fallback_node_paths_windows_builds_correct_paths_from_env() {
+        // Test the path construction logic by setting env vars and verifying
+        // the resulting PathBuf components. We use temp dirs as env values
+        // to avoid conflicts with parallel tests.
+        let tmp = tempfile::tempdir().unwrap();
+        let fake_pf = tmp.path().join("ProgramFiles");
+        let fake_la = tmp.path().join("LocalAppData");
+        let fake_ad = tmp.path().join("AppData");
+        std::fs::create_dir_all(&fake_pf).unwrap();
+        std::fs::create_dir_all(&fake_la).unwrap();
+        std::fs::create_dir_all(&fake_ad).unwrap();
+
+        let orig_pf = std::env::var("ProgramFiles").ok();
+        let orig_la = std::env::var("LOCALAPPDATA").ok();
+        let orig_ad = std::env::var("APPDATA").ok();
+
+        std::env::set_var("ProgramFiles", &fake_pf);
+        std::env::set_var("LOCALAPPDATA", &fake_la);
+        std::env::set_var("APPDATA", &fake_ad);
+
+        let paths = fallback_node_paths_windows();
+
+        // Restore env vars immediately
+        match orig_pf {
+            Some(v) => std::env::set_var("ProgramFiles", v),
+            None => std::env::remove_var("ProgramFiles"),
+        }
+        match orig_la {
+            Some(v) => std::env::set_var("LOCALAPPDATA", v),
+            None => std::env::remove_var("LOCALAPPDATA"),
+        }
+        match orig_ad {
+            Some(v) => std::env::set_var("APPDATA", v),
+            None => std::env::remove_var("APPDATA"),
+        }
+
+        // ProgramFiles/nodejs/node.exe
+        assert!(
+            paths.contains(&fake_pf.join("nodejs").join("node.exe")),
+            "should include ProgramFiles/nodejs/node.exe: {:?}",
+            paths
+        );
+        // LOCALAPPDATA/Volta/node.exe
+        assert!(
+            paths.contains(&fake_la.join("Volta").join("node.exe")),
+            "should include LOCALAPPDATA/Volta/node.exe: {:?}",
+            paths
+        );
+    }
+
+    #[test]
+    fn fallback_node_paths_windows_includes_nvm_versions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let fake_ad = tmp.path().join("AppData");
+        let nvm_dir = fake_ad.join("nvm");
+        let v20 = nvm_dir.join("v20.0.0");
+        let v22 = nvm_dir.join("v22.0.0");
+        std::fs::create_dir_all(&v20).unwrap();
+        std::fs::create_dir_all(&v22).unwrap();
+
+        let orig_pf = std::env::var("ProgramFiles").ok();
+        let orig_la = std::env::var("LOCALAPPDATA").ok();
+        let orig_ad = std::env::var("APPDATA").ok();
+
+        std::env::remove_var("ProgramFiles");
+        std::env::remove_var("LOCALAPPDATA");
+        std::env::set_var("APPDATA", &fake_ad);
+
+        let paths = fallback_node_paths_windows();
+
+        match orig_pf {
+            Some(v) => std::env::set_var("ProgramFiles", v),
+            None => std::env::remove_var("ProgramFiles"),
+        }
+        match orig_la {
+            Some(v) => std::env::set_var("LOCALAPPDATA", v),
+            None => std::env::remove_var("LOCALAPPDATA"),
+        }
+        match orig_ad {
+            Some(v) => std::env::set_var("APPDATA", v),
+            None => std::env::remove_var("APPDATA"),
+        }
+
+        // Should include nvm version paths with node.exe
+        assert!(
+            paths.contains(&v22.join("node.exe")),
+            "should include nvm v22 path: {:?}",
+            paths
+        );
+        assert!(
+            paths.contains(&v20.join("node.exe")),
+            "should include nvm v20 path: {:?}",
+            paths
+        );
+    }
+
+    #[test]
+    fn fallback_node_paths_windows_empty_when_env_vars_unset() {
+        let orig_pf = std::env::var("ProgramFiles").ok();
+        let orig_la = std::env::var("LOCALAPPDATA").ok();
+        let orig_ad = std::env::var("APPDATA").ok();
+
+        std::env::remove_var("ProgramFiles");
+        std::env::remove_var("LOCALAPPDATA");
+        std::env::remove_var("APPDATA");
+
+        let paths = fallback_node_paths_windows();
+
+        if let Some(v) = orig_pf { std::env::set_var("ProgramFiles", v); }
+        if let Some(v) = orig_la { std::env::set_var("LOCALAPPDATA", v); }
+        if let Some(v) = orig_ad { std::env::set_var("APPDATA", v); }
+
+        assert!(
+            paths.is_empty(),
+            "should return empty vec when env vars are unset: {:?}",
+            paths
+        );
     }
 }

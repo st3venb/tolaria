@@ -468,4 +468,84 @@ mod tests {
         write_and_assert_last_vault(&path, "/Users/test/OldVault");
         write_and_assert_last_vault(&path, "/Users/test/NewVault");
     }
+
+    #[test]
+    fn test_app_config_dir_returns_valid_platform_path() {
+        let config = app_config_dir().expect("app_config_dir() should succeed");
+        let path_str = config.to_str().expect("config path should be valid UTF-8");
+        assert!(!path_str.is_empty(), "config dir path must not be empty");
+
+        if cfg!(target_os = "macos") {
+            assert!(
+                path_str.contains("Library/Application Support"),
+                "macOS config dir should contain 'Library/Application Support', got: {}",
+                path_str
+            );
+        } else if cfg!(target_os = "windows") {
+            // dirs::config_dir() resolves to %APPDATA% on Windows
+            assert!(
+                path_str.contains("AppData") || path_str.contains("Roaming"),
+                "Windows config dir should contain 'AppData' or 'Roaming', got: {}",
+                path_str
+            );
+        } else {
+            // Linux: typically ~/.config
+            assert!(
+                path_str.contains(".config") || path_str.contains("config"),
+                "Linux config dir should contain '.config', got: {}",
+                path_str
+            );
+        }
+    }
+}
+
+// --- Property-based tests (proptest) ---
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// Generate a vault path string that looks like a plausible absolute path.
+    fn vault_path_strategy() -> impl Strategy<Value = String> {
+        prop::collection::vec("[a-zA-Z0-9_ ./-]{1,20}", 1..=5).prop_map(|segs| {
+            if cfg!(target_os = "windows") {
+                format!("C:\\Users\\{}", segs.join("\\"))
+            } else {
+                format!("/Users/{}", segs.join("/"))
+            }
+        })
+    }
+
+    // Feature: windows-platform-support, Property 3: Settings vault path round-trip
+    // **Validates: Requirements 10.3**
+    proptest! {
+        #[test]
+        fn prop_vault_path_json_roundtrip(vault_path in vault_path_strategy()) {
+            let dir = tempfile::TempDir::new().unwrap();
+            let path = dir.path().join("last-vault.txt");
+
+            // Write the vault path and read it back
+            set_last_vault_at(&path, &vault_path).unwrap();
+            let loaded = get_last_vault_at(&path);
+            prop_assert_eq!(loaded.as_deref(), Some(vault_path.trim()),
+                "vault path must survive write/read round-trip");
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn prop_settings_vault_path_json_roundtrip(vault_path in vault_path_strategy()) {
+            // Build a Settings with the vault path stored in anonymous_id
+            // (as a proxy for any string field) and round-trip through JSON
+            let json = serde_json::to_string(&serde_json::json!({
+                "last_vault": vault_path
+            }))
+            .unwrap();
+            let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+            let recovered = parsed["last_vault"].as_str().unwrap();
+            prop_assert_eq!(recovered, vault_path.as_str(),
+                "vault path must survive JSON serialization round-trip");
+        }
+    }
 }

@@ -79,15 +79,25 @@ pub(crate) fn find_claude_binary() -> Result<PathBuf, String> {
 }
 
 fn find_claude_binary_on_path() -> Result<Option<PathBuf>, String> {
-    let output = Command::new("which")
-        .arg("claude")
+    let (cmd, arg) = if cfg!(target_os = "windows") {
+        ("where.exe", "claude")
+    } else {
+        ("which", "claude")
+    };
+
+    let output = Command::new(cmd)
+        .arg(arg)
         .output()
-        .map_err(|e| format!("Failed to run `which claude`: {e}"))?;
+        .map_err(|e| format!("Failed to run `{cmd} {arg}`: {e}"))?;
 
     Ok(path_from_successful_output(&output))
 }
 
 fn find_claude_binary_in_user_shell() -> Option<PathBuf> {
+    if cfg!(target_os = "windows") {
+        return None;
+    }
+
     user_shell_candidates()
         .into_iter()
         .filter(|shell| shell.exists())
@@ -141,6 +151,14 @@ fn claude_binary_candidates() -> Vec<PathBuf> {
 }
 
 fn claude_binary_candidates_for_home(home: &Path) -> Vec<PathBuf> {
+    if cfg!(target_os = "windows") {
+        windows_claude_candidates(home)
+    } else {
+        unix_claude_candidates(home)
+    }
+}
+
+fn unix_claude_candidates(home: &Path) -> Vec<PathBuf> {
     vec![
         home.join(".local/bin/claude"),
         home.join(".claude/local/claude"),
@@ -150,6 +168,21 @@ fn claude_binary_candidates_for_home(home: &Path) -> Vec<PathBuf> {
         home.join(".npm/bin/claude"),
         PathBuf::from("/opt/homebrew/bin/claude"),
         PathBuf::from("/usr/local/bin/claude"),
+    ]
+}
+
+fn windows_claude_candidates(home: &Path) -> Vec<PathBuf> {
+    let local_app_data = std::env::var("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| home.join("AppData").join("Local"));
+    let app_data = std::env::var("APPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| home.join("AppData").join("Roaming"));
+
+    vec![
+        local_app_data.join("Programs").join("claude").join("claude.exe"),
+        app_data.join("npm").join("claude.cmd"),
+        home.join(".claude").join("local").join("claude.exe"),
     ]
 }
 
@@ -1097,6 +1130,73 @@ mod tests {
                 candidate.display()
             );
         }
+    }
+
+    #[test]
+    fn unix_claude_candidates_have_no_exe_extensions() {
+        let home = PathBuf::from("/home/testuser");
+        let candidates = unix_claude_candidates(&home);
+
+        for candidate in &candidates {
+            let name = candidate.file_name().unwrap().to_string_lossy();
+            assert!(
+                !name.ends_with(".exe") && !name.ends_with(".cmd"),
+                "Unix candidate should not have .exe/.cmd extension: {}",
+                candidate.display()
+            );
+        }
+
+        assert!(candidates.contains(&home.join(".local/bin/claude")));
+        assert!(candidates.contains(&home.join(".claude/local/claude")));
+        assert!(candidates.contains(&PathBuf::from("/opt/homebrew/bin/claude")));
+    }
+
+    #[test]
+    fn windows_claude_candidates_have_exe_or_cmd_extensions() {
+        let home = PathBuf::from("C:\\Users\\testuser");
+        let candidates = windows_claude_candidates(&home);
+
+        for candidate in &candidates {
+            let name = candidate.file_name().unwrap().to_string_lossy();
+            assert!(
+                name.ends_with(".exe") || name.ends_with(".cmd"),
+                "Windows candidate must have .exe or .cmd extension: {}",
+                candidate.display()
+            );
+        }
+
+        assert!(!candidates.is_empty());
+    }
+
+    #[test]
+    fn windows_claude_candidates_include_expected_paths() {
+        let home = PathBuf::from("C:\\Users\\testuser");
+        let candidates = windows_claude_candidates(&home);
+
+        let has_local_programs = candidates
+            .iter()
+            .any(|p| p.to_string_lossy().contains("Programs") && p.to_string_lossy().contains("claude.exe"));
+        let has_npm_cmd = candidates
+            .iter()
+            .any(|p| p.to_string_lossy().contains("npm") && p.to_string_lossy().contains("claude.cmd"));
+        let has_dot_claude = candidates
+            .iter()
+            .any(|p| p.to_string_lossy().contains(".claude") && p.to_string_lossy().contains("claude.exe"));
+
+        assert!(has_local_programs, "Should include LOCALAPPDATA/Programs/claude/claude.exe");
+        assert!(has_npm_cmd, "Should include APPDATA/npm/claude.cmd");
+        assert!(has_dot_claude, "Should include .claude/local/claude.exe");
+    }
+
+    #[test]
+    fn find_claude_binary_in_user_shell_skips_on_windows() {
+        // The function returns None on Windows (cfg check).
+        // On non-Windows, it attempts shell detection.
+        let result = find_claude_binary_in_user_shell();
+        if cfg!(target_os = "windows") {
+            assert!(result.is_none(), "Should skip shell detection on Windows");
+        }
+        // On macOS/Linux, result depends on whether claude is installed
     }
 
     #[test]
