@@ -119,8 +119,13 @@ jobs:
           else
             sed -i "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
           fi
-          # MSI (WiX) requires numeric-only X.Y.Z.N versions (no pre-release suffixes).
+          # MSI (WiX) requires numeric X.Y.Z or X.Y.Z.N where major ≤ 255.
+          # Calendar version "2026.4.24" → "26.4.24" (year - 2000).
           MSI_VERSION=$(echo "$VERSION" | sed 's/-alpha\.\([0-9]*\)$/.\1/' | sed 's/-[^.]*$//')
+          MSI_MAJOR=$(echo "$MSI_VERSION" | cut -d. -f1)
+          MSI_MAJOR=$((MSI_MAJOR % 256))
+          MSI_REST=$(echo "$MSI_VERSION" | cut -d. -f2-)
+          MSI_VERSION="${MSI_MAJOR}.${MSI_REST}"
           echo "MSI_VERSION=$MSI_VERSION" >> "$GITHUB_ENV"
 
       - name: Import Apple Developer certificate into keychain
