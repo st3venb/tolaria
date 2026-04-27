@@ -12,7 +12,7 @@ pub struct FolderNode {
     pub children: Vec<FolderNode>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct VaultEntry {
     pub path: String,
     pub filename: String,

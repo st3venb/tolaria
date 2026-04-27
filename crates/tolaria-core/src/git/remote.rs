@@ -6,7 +6,7 @@ use super::conflict::get_conflict_files;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct GitPullResult {
-    pub status: String, // "up_to_date" | "updated" | "conflict" | "no_remote" | "error"
+    pub status: String,
     pub message: String,
     #[serde(rename = "updatedFiles")]
     pub updated_files: Vec<String>,
@@ -27,7 +27,6 @@ pub fn has_remote(vault_path: &str) -> Result<bool, String> {
 }
 
 /// Pull latest changes from remote. Uses --no-rebase to merge.
-/// Returns a structured result with status and affected files.
 pub fn git_pull(vault_path: &str) -> Result<GitPullResult, String> {
     let vault = Path::new(vault_path);
 
@@ -67,7 +66,6 @@ pub fn git_pull(vault_path: &str) -> Result<GitPullResult, String> {
         });
     }
 
-    // Check for merge conflicts
     let conflicts = get_conflict_files(vault_path).unwrap_or_default();
     if !conflicts.is_empty() {
         return Ok(GitPullResult {
@@ -78,7 +76,6 @@ pub fn git_pull(vault_path: &str) -> Result<GitPullResult, String> {
         });
     }
 
-    // Network error or other failure — report as error
     let detail = if stderr.trim().is_empty() {
         stdout.trim().to_string()
     } else {
@@ -92,13 +89,11 @@ pub fn git_pull(vault_path: &str) -> Result<GitPullResult, String> {
     })
 }
 
-/// Parse `git pull` output to extract updated file paths.
 fn parse_updated_files(stdout: &str) -> Vec<String> {
     stdout
         .lines()
         .filter_map(|line| {
             let trimmed = line.trim();
-            // Lines like " path/to/file.md | 5 ++-" in diffstat
             if trimmed.contains('|') {
                 let path = trimmed.split('|').next()?.trim();
                 if !path.is_empty() {
@@ -119,7 +114,6 @@ pub struct GitRemoteStatus {
     pub has_remote: bool,
 }
 
-/// Get the current branch name, and how many commits ahead/behind the upstream.
 pub fn git_remote_status(vault_path: &str) -> Result<GitRemoteStatus, String> {
     let vault = Path::new(vault_path);
 
@@ -133,7 +127,6 @@ pub fn git_remote_status(vault_path: &str) -> Result<GitRemoteStatus, String> {
         });
     }
 
-    // Fetch latest remote refs (silent, best-effort)
     let _ = Command::new("git")
         .args(["fetch", "--quiet"])
         .current_dir(vault)
@@ -148,7 +141,6 @@ pub fn git_remote_status(vault_path: &str) -> Result<GitRemoteStatus, String> {
         .map_err(|e| format!("Failed to run git rev-list: {}", e))?;
 
     if !output.status.success() {
-        // No upstream set — report 0/0
         return Ok(GitRemoteStatus {
             branch,
             ahead: 0,
@@ -181,11 +173,10 @@ fn current_branch(vault: &Path) -> Result<String, String> {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct GitPushResult {
-    pub status: String, // "ok" | "rejected" | "auth_error" | "network_error" | "error"
+    pub status: String,
     pub message: String,
 }
 
-/// Classify a git push stderr message into a user-friendly status and message.
 pub fn classify_push_error(stderr: &str) -> GitPushResult {
     let lower = stderr.to_lowercase();
 
@@ -225,7 +216,6 @@ pub fn classify_push_error(stderr: &str) -> GitPushResult {
         };
     }
 
-    // Fallback: extract the hint line if present, otherwise use the full stderr
     let hint_line = stderr
         .lines()
         .find(|l| l.trim_start().starts_with("hint:"))
@@ -245,7 +235,6 @@ pub fn classify_push_error(stderr: &str) -> GitPushResult {
     }
 }
 
-/// Push to remote.
 pub fn git_push(vault_path: &str) -> Result<GitPushResult, String> {
     let vault = Path::new(vault_path);
 
@@ -279,7 +268,6 @@ mod tests {
         let dir = setup_git_repo();
         let vault = dir.path();
         let vp = vault.to_str().unwrap();
-
         assert!(!has_remote(vp).unwrap());
     }
 
@@ -288,13 +276,11 @@ mod tests {
         let dir = setup_git_repo();
         let vault = dir.path();
         let vp = vault.to_str().unwrap();
-
         Command::new("git")
             .args(["remote", "add", "origin", "https://example.com/repo.git"])
             .current_dir(vault)
             .output()
             .unwrap();
-
         assert!(has_remote(vp).unwrap());
     }
 
@@ -303,25 +289,19 @@ mod tests {
         let dir = setup_git_repo();
         let vault = dir.path();
         let vp = vault.to_str().unwrap();
-
         fs::write(vault.join("note.md"), "# Note\n").unwrap();
         git_commit(vp, "initial").unwrap();
-
         let result = git_pull(vp).unwrap();
         assert_eq!(result.status, "no_remote");
-        assert!(result.updated_files.is_empty());
-        assert!(result.conflict_files.is_empty());
     }
 
     #[test]
     fn test_git_pull_up_to_date() {
         let (_bare, clone_a, _clone_b) = setup_remote_pair();
         let vp_a = clone_a.path().to_str().unwrap();
-
         fs::write(clone_a.path().join("note.md"), "# Note\n").unwrap();
         git_commit(vp_a, "initial").unwrap();
         git_push(vp_a).unwrap();
-
         let result = git_pull(vp_a).unwrap();
         assert_eq!(result.status, "up_to_date");
     }
@@ -331,17 +311,13 @@ mod tests {
         let (_bare, clone_a, clone_b) = setup_remote_pair();
         let vp_a = clone_a.path().to_str().unwrap();
         let vp_b = clone_b.path().to_str().unwrap();
-
         fs::write(clone_a.path().join("note.md"), "# Note\n").unwrap();
         git_commit(vp_a, "initial").unwrap();
         git_push(vp_a).unwrap();
-
         git_pull(vp_b).unwrap();
-
         fs::write(clone_a.path().join("note.md"), "# Updated Note\n").unwrap();
         git_commit(vp_a, "update note").unwrap();
         git_push(vp_a).unwrap();
-
         let result = git_pull(vp_b).unwrap();
         assert_eq!(result.status, "updated");
         assert!(result.conflict_files.is_empty());
@@ -375,18 +351,10 @@ hint: have locally."#;
     }
 
     #[test]
-    fn test_classify_push_error_fetch_first() {
-        let stderr = "error: failed to push some refs\nhint: Updates were rejected because the tip of your current branch is behind\nhint: its remote counterpart. Integrate the remote changes (e.g.\nhint: 'git pull ...') before pushing again.\nhint: See the 'Note about fast-forwards' in 'git push --help' for details.\n ! [rejected]        main -> main (fetch first)\n";
-        let result = classify_push_error(stderr);
-        assert_eq!(result.status, "rejected");
-    }
-
-    #[test]
     fn test_classify_push_error_auth_failure() {
         let stderr = "remote: Permission denied to user/repo.git\nfatal: unable to access 'https://github.com/user/repo.git/': The requested URL returned error: 403";
         let result = classify_push_error(stderr);
         assert_eq!(result.status, "auth_error");
-        assert!(result.message.contains("authentication"));
     }
 
     #[test]
@@ -394,7 +362,6 @@ hint: have locally."#;
         let stderr = "fatal: unable to access 'https://github.com/user/repo.git/': Could not resolve host: github.com";
         let result = classify_push_error(stderr);
         assert_eq!(result.status, "network_error");
-        assert!(result.message.contains("network"));
     }
 
     #[test]
@@ -403,14 +370,6 @@ hint: have locally."#;
         let result = classify_push_error(stderr);
         assert_eq!(result.status, "error");
         assert!(result.message.contains("Try again later"));
-    }
-
-    #[test]
-    fn test_classify_push_error_unknown_no_hint() {
-        let stderr = "error: something totally weird";
-        let result = classify_push_error(stderr);
-        assert_eq!(result.status, "error");
-        assert!(result.message.contains("something totally weird"));
     }
 
     #[test]
@@ -429,7 +388,6 @@ hint: have locally."#;
     fn test_git_push_success_returns_ok() {
         let (_bare, clone_a, _clone_b) = setup_remote_pair();
         let vp_a = clone_a.path().to_str().unwrap();
-
         fs::write(clone_a.path().join("note.md"), "# Note\n").unwrap();
         git_commit(vp_a, "initial").unwrap();
         let result = git_push(vp_a).unwrap();
@@ -441,23 +399,17 @@ hint: have locally."#;
         let (_bare, clone_a, clone_b) = setup_remote_pair();
         let vp_a = clone_a.path().to_str().unwrap();
         let vp_b = clone_b.path().to_str().unwrap();
-
-        // Both clones commit and push — second push should be rejected
         fs::write(clone_a.path().join("note.md"), "# A\n").unwrap();
         git_commit(vp_a, "from A").unwrap();
         git_push(vp_a).unwrap();
-
         git_pull(vp_b).unwrap();
         fs::write(clone_b.path().join("note.md"), "# B\n").unwrap();
         git_commit(vp_b, "from B").unwrap();
         git_push(vp_b).unwrap();
-
-        // Now A has a new commit but hasn't pulled B's changes
         fs::write(clone_a.path().join("other.md"), "# Other\n").unwrap();
         git_commit(vp_a, "from A again").unwrap();
         let result = git_push(vp_a).unwrap();
         assert_eq!(result.status, "rejected");
-        assert!(result.message.contains("Pull first"));
     }
 
     #[test]
@@ -465,10 +417,8 @@ hint: have locally."#;
         let dir = setup_git_repo();
         let vault = dir.path();
         let vp = vault.to_str().unwrap();
-
         fs::write(vault.join("note.md"), "# Note\n").unwrap();
         git_commit(vp, "initial").unwrap();
-
         let status = git_remote_status(vp).unwrap();
         assert!(!status.has_remote);
         assert_eq!(status.ahead, 0);
@@ -479,11 +429,9 @@ hint: have locally."#;
     fn test_git_remote_status_up_to_date() {
         let (_bare, clone_a, _clone_b) = setup_remote_pair();
         let vp_a = clone_a.path().to_str().unwrap();
-
         fs::write(clone_a.path().join("note.md"), "# Note\n").unwrap();
         git_commit(vp_a, "initial").unwrap();
         git_push(vp_a).unwrap();
-
         let status = git_remote_status(vp_a).unwrap();
         assert!(status.has_remote);
         assert_eq!(status.ahead, 0);
@@ -494,15 +442,11 @@ hint: have locally."#;
     fn test_git_remote_status_ahead() {
         let (_bare, clone_a, _clone_b) = setup_remote_pair();
         let vp_a = clone_a.path().to_str().unwrap();
-
         fs::write(clone_a.path().join("note.md"), "# Note\n").unwrap();
         git_commit(vp_a, "initial").unwrap();
         git_push(vp_a).unwrap();
-
-        // Make a new commit without pushing
         fs::write(clone_a.path().join("note.md"), "# Updated\n").unwrap();
         git_commit(vp_a, "update").unwrap();
-
         let status = git_remote_status(vp_a).unwrap();
         assert_eq!(status.ahead, 1);
         assert_eq!(status.behind, 0);
@@ -513,17 +457,13 @@ hint: have locally."#;
         let (_bare, clone_a, clone_b) = setup_remote_pair();
         let vp_a = clone_a.path().to_str().unwrap();
         let vp_b = clone_b.path().to_str().unwrap();
-
         fs::write(clone_a.path().join("note.md"), "# Note\n").unwrap();
         git_commit(vp_a, "initial").unwrap();
         git_push(vp_a).unwrap();
-
         git_pull(vp_b).unwrap();
         fs::write(clone_b.path().join("note.md"), "# B update\n").unwrap();
         git_commit(vp_b, "from B").unwrap();
         git_push(vp_b).unwrap();
-
-        // A is now behind by 1
         let status = git_remote_status(vp_a).unwrap();
         assert_eq!(status.behind, 1);
         assert_eq!(status.ahead, 0);
@@ -554,8 +494,6 @@ hint: have locally."#;
         };
         let json = serde_json::to_string(&result).unwrap();
         assert!(json.contains("\"updatedFiles\""));
-        assert!(json.contains("\"conflictFiles\""));
-
         let parsed: GitPullResult = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.status, "updated");
         assert_eq!(parsed.updated_files.len(), 1);

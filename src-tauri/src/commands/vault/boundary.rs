@@ -1,5 +1,5 @@
 use crate::commands::expand_tilde;
-use crate::vault_list;
+use tolaria_core::vault_list;
 use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 

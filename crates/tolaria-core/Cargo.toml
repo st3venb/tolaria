@@ -1,0 +1,26 @@
+[package]
+name = "tolaria-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Tolaria domain logic library — vault, git, frontmatter, search, settings"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+chrono = { workspace = true }
+walkdir = { workspace = true }
+gray_matter = { workspace = true }
+regex = { workspace = true }
+uuid = { workspace = true }
+tokio = { workspace = true }
+base64 = { workspace = true }
+dirs = { workspace = true }
+tempfile = { workspace = true }
+log = { workspace = true }
+futures-util = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

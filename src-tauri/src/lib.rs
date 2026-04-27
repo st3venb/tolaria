@@ -1,17 +1,10 @@
-pub mod ai_agents;
 pub mod app_updater;
-pub mod claude_cli;
 mod commands;
-pub mod frontmatter;
-pub mod git;
-pub mod mcp;
 #[cfg(desktop)]
 pub mod menu;
-pub mod search;
-pub mod settings;
 pub mod telemetry;
-pub mod vault;
-pub mod vault_list;
+
+use tolaria_core::{mcp, vault};
 
 #[cfg(desktop)]
 use std::path::{Path, PathBuf};

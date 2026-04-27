@@ -1,4 +1,4 @@
-use crate::settings;
+use tolaria_core::settings;
 use regex::Regex;
 use std::sync::Mutex;
 

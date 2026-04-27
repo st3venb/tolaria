@@ -1,7 +1,7 @@
 #[cfg(desktop)]
-use crate::ai_agents::{AiAgentStreamRequest, AiAgentsStatus};
-use crate::claude_cli::{AgentStreamRequest, ChatStreamRequest, ClaudeCliStatus};
-use crate::vault::VaultAiGuidanceStatus;
+use tolaria_core::ai_agents::{AiAgentStreamRequest, AiAgentsStatus};
+use tolaria_core::claude_cli::{AgentStreamRequest, ChatStreamRequest, ClaudeCliStatus};
+use tolaria_core::vault::VaultAiGuidanceStatus;
 
 use super::expand_tilde;
 
@@ -52,25 +52,25 @@ macro_rules! define_desktop_stream_command {
 #[cfg(desktop)]
 #[tauri::command]
 pub fn check_claude_cli() -> ClaudeCliStatus {
-    crate::claude_cli::check_cli()
+    tolaria_core::claude_cli::check_cli()
 }
 
 #[cfg(desktop)]
 #[tauri::command]
 pub fn get_ai_agents_status() -> AiAgentsStatus {
-    crate::ai_agents::get_ai_agents_status()
+    tolaria_core::ai_agents::get_ai_agents_status()
 }
 
 #[tauri::command]
 pub fn get_vault_ai_guidance_status(vault_path: String) -> Result<VaultAiGuidanceStatus, String> {
     let vault_path = expand_tilde(&vault_path);
-    crate::vault::get_ai_guidance_status(vault_path.as_ref())
+    tolaria_core::vault::get_ai_guidance_status(vault_path.as_ref())
 }
 
 #[tauri::command]
 pub fn restore_vault_ai_guidance(vault_path: String) -> Result<VaultAiGuidanceStatus, String> {
     let vault_path = expand_tilde(&vault_path);
-    crate::vault::restore_ai_guidance_files(vault_path.as_ref())
+    tolaria_core::vault::restore_ai_guidance_files(vault_path.as_ref())
 }
 
 #[cfg(desktop)]
@@ -78,7 +78,7 @@ define_desktop_stream_command!(
     stream_claude_chat,
     ChatStreamRequest,
     "claude-stream",
-    crate::claude_cli::run_chat_stream
+    tolaria_core::claude_cli::run_chat_stream
 );
 
 #[cfg(desktop)]
@@ -86,7 +86,7 @@ define_desktop_stream_command!(
     stream_claude_agent,
     AgentStreamRequest,
     "claude-agent-stream",
-    crate::claude_cli::run_agent_stream
+    tolaria_core::claude_cli::run_agent_stream
 );
 
 #[cfg(desktop)]
@@ -94,7 +94,7 @@ define_desktop_stream_command!(
     stream_ai_agent,
     AiAgentStreamRequest,
     "ai-agent-stream",
-    crate::ai_agents::run_ai_agent_stream
+    tolaria_core::ai_agents::run_ai_agent_stream
 );
 
 // ── Claude CLI (mobile stubs) ───────────────────────────────────────────────
@@ -112,11 +112,11 @@ pub fn check_claude_cli() -> ClaudeCliStatus {
 #[tauri::command]
 pub fn get_ai_agents_status() -> AiAgentsStatus {
     AiAgentsStatus {
-        claude_code: crate::ai_agents::AiAgentAvailability {
+        claude_code: tolaria_core::ai_agents::AiAgentAvailability {
             installed: false,
             version: None,
         },
-        codex: crate::ai_agents::AiAgentAvailability {
+        codex: tolaria_core::ai_agents::AiAgentAvailability {
             installed: false,
             version: None,
         },

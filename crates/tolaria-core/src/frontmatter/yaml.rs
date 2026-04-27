@@ -128,6 +128,7 @@ pub fn format_yaml_field(key: &str, value: &FrontmatterValue) -> Vec<String> {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;

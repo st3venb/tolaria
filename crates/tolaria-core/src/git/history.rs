@@ -31,7 +31,6 @@ pub fn get_file_history(vault_path: &str, file_path: &str) -> Result<Vec<GitComm
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        // No commits yet is not an error - just return empty history
         if stderr.contains("does not have any commits yet") {
             return Ok(Vec::new());
         }
@@ -43,8 +42,6 @@ pub fn get_file_history(vault_path: &str, file_path: &str) -> Result<Vec<GitComm
         .lines()
         .filter(|line| !line.is_empty())
         .filter_map(|line| {
-            // Format: hash|short_hash|author|date|message
-            // Use splitn(5) so message (last) can contain '|'
             let parts: Vec<&str> = line.splitn(5, '|').collect();
             if parts.len() != 5 {
                 return None;
@@ -79,7 +76,6 @@ pub fn get_file_diff(vault_path: &str, file_path: &str) -> Result<String, String
         .to_str()
         .ok_or_else(|| "Invalid UTF-8 in path".to_string())?;
 
-    // First try tracked file diff
     let output = Command::new("git")
         .args(["diff", "--", relative_str])
         .current_dir(vault)
@@ -88,7 +84,6 @@ pub fn get_file_diff(vault_path: &str, file_path: &str) -> Result<String, String
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
-    // If no diff (maybe staged or untracked), try diff --cached
     if stdout.is_empty() {
         let cached = Command::new("git")
             .args(["diff", "--cached", "--", relative_str])
@@ -101,7 +96,6 @@ pub fn get_file_diff(vault_path: &str, file_path: &str) -> Result<String, String
             return Ok(cached_stdout);
         }
 
-        // Try showing untracked file as all-new
         let status = Command::new("git")
             .args(["status", "--porcelain", "--", relative_str])
             .current_dir(vault)
@@ -110,7 +104,6 @@ pub fn get_file_diff(vault_path: &str, file_path: &str) -> Result<String, String
 
         let status_out = String::from_utf8_lossy(&status.stdout);
         if status_out.starts_with("??") {
-            // Untracked file: show entire content as added
             let content =
                 std::fs::read_to_string(file).map_err(|e| format!("Failed to read file: {}", e))?;
             let lines: Vec<String> = content.lines().map(|l| format!("+{}", l)).collect();
@@ -143,7 +136,6 @@ pub fn get_file_diff_at_commit(
         .to_str()
         .ok_or_else(|| "Invalid UTF-8 in path".to_string())?;
 
-    // Show diff between commit^ and commit for this file
     let output = Command::new("git")
         .args([
             "diff",
@@ -158,8 +150,6 @@ pub fn get_file_diff_at_commit(
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
-    // If diff is empty, it might be the initial commit (no parent).
-    // Fall back to showing the full file content as added.
     if stdout.is_empty() {
         let show = Command::new("git")
             .args(["show", &format!("{}:{}", commit_hash, relative_str)])
@@ -298,7 +288,6 @@ mod tests {
             .output()
             .unwrap();
 
-        // Get hash of second commit
         let log = Command::new("git")
             .args(["log", "--format=%H", "-1"])
             .current_dir(vault)

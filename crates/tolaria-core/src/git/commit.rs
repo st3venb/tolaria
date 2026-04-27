@@ -100,7 +100,6 @@ mod tests {
         let result = git_commit(vault.to_str().unwrap(), "Test commit");
         assert!(result.is_ok());
 
-        // Verify the commit exists
         let log = Command::new("git")
             .args(["log", "--oneline", "-1"])
             .current_dir(vault)
@@ -116,11 +115,9 @@ mod tests {
         let vault = dir.path();
         let vp = vault.to_str().unwrap();
 
-        // Create and commit, so working tree is clean
         fs::write(vault.join("clean.md"), "# Clean\n").unwrap();
         git_commit(vp, "initial").unwrap();
 
-        // Committing again with no changes should fail
         let result = git_commit(vp, "nothing here");
         assert!(result.is_err(), "Commit should fail when nothing to commit");
         assert!(

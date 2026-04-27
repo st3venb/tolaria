@@ -35,7 +35,7 @@ enum ReleaseChannel {
 
 impl ReleaseChannel {
     fn from_settings_value(value: Option<&str>) -> Self {
-        match crate::settings::effective_release_channel(value) {
+        match tolaria_core::settings::effective_release_channel(value) {
             "alpha" => Self::Alpha,
             _ => Self::Stable,
         }

@@ -1,4 +1,4 @@
-use crate::git::GitAddRemoteResult;
+use tolaria_core::git::GitAddRemoteResult;
 use serde::Deserialize;
 
 use super::expand_tilde;
@@ -15,7 +15,7 @@ pub struct GitAddRemoteRequest {
 pub async fn git_add_remote(request: GitAddRemoteRequest) -> Result<GitAddRemoteResult, String> {
     let vault_path = expand_tilde(&request.vault_path).into_owned();
     let remote_url = request.remote_url;
-    tokio::task::spawn_blocking(move || crate::git::git_add_remote(&vault_path, &remote_url))
+    tokio::task::spawn_blocking(move || tolaria_core::git::git_add_remote(&vault_path, &remote_url))
         .await
         .map_err(|e| format!("Task panicked: {e}"))?
 }

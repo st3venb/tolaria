@@ -1,4 +1,4 @@
-use crate::vault::{self, FolderRenameResult};
+use tolaria_core::vault::{self, FolderRenameResult};
 
 use super::expand_tilde;
 

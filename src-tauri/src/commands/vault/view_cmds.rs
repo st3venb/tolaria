@@ -1,4 +1,4 @@
-use crate::vault::{self, ViewDefinition, ViewFile};
+use tolaria_core::vault::{self, ViewDefinition, ViewFile};
 use std::path::Path;
 
 use super::boundary::{with_boundary, with_view_file};

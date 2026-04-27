@@ -1,5 +1,5 @@
 use crate::commands::expand_tilde;
-use crate::{git, vault};
+use tolaria_core::{git, vault};
 use std::path::Path;
 
 #[tauri::command]

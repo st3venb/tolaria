@@ -1,4 +1,4 @@
-use crate::git::{
+use tolaria_core::git::{
     GitCommit, GitPullResult, GitPushResult, GitRemoteStatus, LastCommitInfo, ModifiedFile,
     PulseCommit,
 };
@@ -12,14 +12,14 @@ use super::expand_tilde;
 pub fn get_file_history(vault_path: String, path: String) -> Result<Vec<GitCommit>, String> {
     let vault_path = expand_tilde(&vault_path);
     let path = expand_tilde(&path);
-    crate::git::get_file_history(&vault_path, &path)
+    tolaria_core::git::get_file_history(&vault_path, &path)
 }
 
 #[cfg(desktop)]
 #[tauri::command]
 pub fn get_modified_files(vault_path: String) -> Result<Vec<ModifiedFile>, String> {
     let vault_path = expand_tilde(&vault_path);
-    crate::git::get_modified_files(&vault_path)
+    tolaria_core::git::get_modified_files(&vault_path)
 }
 
 #[cfg(desktop)]
@@ -27,7 +27,7 @@ pub fn get_modified_files(vault_path: String) -> Result<Vec<ModifiedFile>, Strin
 pub fn get_file_diff(vault_path: String, path: String) -> Result<String, String> {
     let vault_path = expand_tilde(&vault_path);
     let path = expand_tilde(&path);
-    crate::git::get_file_diff(&vault_path, &path)
+    tolaria_core::git::get_file_diff(&vault_path, &path)
 }
 
 #[cfg(desktop)]
@@ -39,7 +39,7 @@ pub fn get_file_diff_at_commit(
 ) -> Result<String, String> {
     let vault_path = expand_tilde(&vault_path);
     let path = expand_tilde(&path);
-    crate::git::get_file_diff_at_commit(&vault_path, &path, &commit_hash)
+    tolaria_core::git::get_file_diff_at_commit(&vault_path, &path, &commit_hash)
 }
 
 #[cfg(desktop)]
@@ -52,28 +52,28 @@ pub fn get_vault_pulse(
     let vault_path = expand_tilde(&vault_path);
     let limit = limit.unwrap_or(20);
     let skip = skip.unwrap_or(0);
-    crate::git::get_vault_pulse(&vault_path, limit, skip)
+    tolaria_core::git::get_vault_pulse(&vault_path, limit, skip)
 }
 
 #[cfg(desktop)]
 #[tauri::command]
 pub fn git_commit(vault_path: String, message: String) -> Result<String, String> {
     let vault_path = expand_tilde(&vault_path);
-    crate::git::git_commit(&vault_path, &message)
+    tolaria_core::git::git_commit(&vault_path, &message)
 }
 
 #[cfg(desktop)]
 #[tauri::command]
 pub fn get_last_commit_info(vault_path: String) -> Result<Option<LastCommitInfo>, String> {
     let vault_path = expand_tilde(&vault_path);
-    crate::git::get_last_commit_info(&vault_path)
+    tolaria_core::git::get_last_commit_info(&vault_path)
 }
 
 #[cfg(desktop)]
 #[tauri::command]
 pub async fn git_pull(vault_path: String) -> Result<GitPullResult, String> {
     let vault_path = expand_tilde(&vault_path).into_owned();
-    tokio::task::spawn_blocking(move || crate::git::git_pull(&vault_path))
+    tokio::task::spawn_blocking(move || tolaria_core::git::git_pull(&vault_path))
         .await
         .map_err(|e| format!("Task panicked: {e}"))?
 }
@@ -82,14 +82,14 @@ pub async fn git_pull(vault_path: String) -> Result<GitPullResult, String> {
 #[tauri::command]
 pub fn get_conflict_files(vault_path: String) -> Result<Vec<String>, String> {
     let vault_path = expand_tilde(&vault_path);
-    crate::git::get_conflict_files(&vault_path)
+    tolaria_core::git::get_conflict_files(&vault_path)
 }
 
 #[cfg(desktop)]
 #[tauri::command]
 pub fn get_conflict_mode(vault_path: String) -> String {
     let vault_path = expand_tilde(&vault_path);
-    crate::git::get_conflict_mode(&vault_path)
+    tolaria_core::git::get_conflict_mode(&vault_path)
 }
 
 #[cfg(desktop)]
@@ -100,21 +100,21 @@ pub fn git_resolve_conflict(
     strategy: String,
 ) -> Result<(), String> {
     let vault_path = expand_tilde(&vault_path);
-    crate::git::git_resolve_conflict(&vault_path, &file, &strategy)
+    tolaria_core::git::git_resolve_conflict(&vault_path, &file, &strategy)
 }
 
 #[cfg(desktop)]
 #[tauri::command]
 pub fn git_commit_conflict_resolution(vault_path: String) -> Result<String, String> {
     let vault_path = expand_tilde(&vault_path);
-    crate::git::git_commit_conflict_resolution(&vault_path)
+    tolaria_core::git::git_commit_conflict_resolution(&vault_path)
 }
 
 #[cfg(desktop)]
 #[tauri::command]
 pub async fn git_push(vault_path: String) -> Result<GitPushResult, String> {
     let vault_path = expand_tilde(&vault_path).into_owned();
-    tokio::task::spawn_blocking(move || crate::git::git_push(&vault_path))
+    tokio::task::spawn_blocking(move || tolaria_core::git::git_push(&vault_path))
         .await
         .map_err(|e| format!("Task panicked: {e}"))?
 }
@@ -123,7 +123,7 @@ pub async fn git_push(vault_path: String) -> Result<GitPushResult, String> {
 #[tauri::command]
 pub async fn git_remote_status(vault_path: String) -> Result<GitRemoteStatus, String> {
     let vault_path = expand_tilde(&vault_path).into_owned();
-    tokio::task::spawn_blocking(move || crate::git::git_remote_status(&vault_path))
+    tokio::task::spawn_blocking(move || tolaria_core::git::git_remote_status(&vault_path))
         .await
         .map_err(|e| format!("Task panicked: {e}"))?
 }
@@ -132,7 +132,7 @@ pub async fn git_remote_status(vault_path: String) -> Result<GitRemoteStatus, St
 #[tauri::command]
 pub fn git_discard_file(vault_path: String, relative_path: String) -> Result<(), String> {
     let vault_path = expand_tilde(&vault_path);
-    crate::git::discard_file_changes(&vault_path, &relative_path)
+    tolaria_core::git::discard_file_changes(&vault_path, &relative_path)
 }
 
 #[cfg(desktop)]
@@ -148,14 +148,14 @@ pub fn is_git_repo(vault_path: String) -> bool {
 #[tauri::command]
 pub fn init_git_repo(vault_path: String) -> Result<(), String> {
     let vault_path = expand_tilde(&vault_path);
-    crate::git::init_repo(&vault_path)
+    tolaria_core::git::init_repo(&vault_path)
 }
 
 #[cfg(desktop)]
 #[tauri::command]
 pub fn clone_repo(url: String, local_path: String) -> Result<String, String> {
     let local_path = expand_tilde(&local_path);
-    crate::git::clone_repo(&url, &local_path)
+    tolaria_core::git::clone_repo(&url, &local_path)
 }
 
 // ── Git commands (mobile stubs) ─────────────────────────────────────────────

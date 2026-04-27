@@ -1,7 +1,7 @@
 use crate::commands::expand_tilde;
-use crate::search::SearchResponse;
-use crate::vault::VaultEntry;
-use crate::{search, vault};
+use tolaria_core::search::SearchResponse;
+use tolaria_core::vault::VaultEntry;
+use tolaria_core::{search, vault};
 use std::path::{Path, PathBuf};
 
 use super::boundary::{with_validated_path, ValidatedPathMode};
@@ -25,7 +25,7 @@ pub fn reload_vault_entry(
 pub async fn reload_vault(
     app_handle: tauri::AppHandle,
     path: String,
-) -> Result<Vec<crate::vault::VaultEntry>, String> {
+) -> Result<Vec<tolaria_core::vault::VaultEntry>, String> {
     let path = expand_tilde(&path).into_owned();
     crate::sync_vault_asset_scope(&app_handle, Path::new(&path))?;
     tokio::task::spawn_blocking(move || {

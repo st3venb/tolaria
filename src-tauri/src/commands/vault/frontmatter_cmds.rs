@@ -1,5 +1,5 @@
-use crate::frontmatter;
-use crate::frontmatter::FrontmatterValue;
+use tolaria_core::frontmatter;
+use tolaria_core::frontmatter::FrontmatterValue;
 
 use super::boundary::{with_existing_paths, with_validated_path, ValidatedPathMode};
 

@@ -1,5 +1,5 @@
 use crate::commands::expand_tilde;
-use crate::vault::{self, DetectedRename, RenameResult};
+use tolaria_core::vault::{self, DetectedRename, RenameResult};
 use std::path::Path;
 
 use super::boundary::{

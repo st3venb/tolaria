@@ -17,7 +17,7 @@ pub use view_cmds::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vault::ViewDefinition;
+    use tolaria_core::vault::ViewDefinition;
     use std::path::Path;
 
     const ACTIVE_VAULT_PATH_ERROR: &str = super::boundary::ACTIVE_VAULT_PATH_ERROR;
@@ -174,7 +174,7 @@ mod tests {
             color: None,
             sort: None,
             list_properties_display: vec![],
-            filters: crate::vault::FilterGroup::All(vec![]),
+            filters: tolaria_core::vault::FilterGroup::All(vec![]),
         };
 
         let err = save_view_cmd(
@@ -239,8 +239,8 @@ mod tests {
         .unwrap();
 
         let vp_str = vault_path.to_str().unwrap();
-        crate::vault::invalidate_cache(std::path::Path::new(vp_str));
-        let fresh = crate::vault::scan_vault_cached(std::path::Path::new(vp_str)).unwrap();
+        tolaria_core::vault::invalidate_cache(std::path::Path::new(vp_str));
+        let fresh = tolaria_core::vault::scan_vault_cached(std::path::Path::new(vp_str)).unwrap();
         assert!(
             fresh[0].archived,
             "reload_vault must reflect disk state after archiving"

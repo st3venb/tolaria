@@ -1,5 +1,5 @@
 use crate::commands::expand_tilde;
-use crate::vault::{self, FolderNode, VaultEntry};
+use tolaria_core::vault::{self, FolderNode, VaultEntry};
 use std::path::{Path, PathBuf};
 
 use super::boundary::{

@@ -191,7 +191,7 @@ fn find_existing_binary(candidates: Vec<PathBuf>) -> Option<PathBuf> {
 }
 
 // ---------------------------------------------------------------------------
-// Public Tauri commands
+// Public commands
 // ---------------------------------------------------------------------------
 
 /// Check whether the `claude` CLI is installed and return its version.
@@ -782,7 +782,6 @@ mod tests {
 
     #[test]
     fn dispatch_stream_event_input_json_delta_accumulates_silently() {
-        // input_json_delta doesn't emit events directly — it accumulates in state
         let (_, events) = run_dispatch(serde_json::json!({
             "type": "stream_event",
             "event": { "type": "content_block_delta", "index": 0, "delta": { "type": "input_json_delta", "partial_json": "{}" } }
@@ -845,12 +844,10 @@ mod tests {
     #[test]
     fn dispatch_accumulates_input_json_deltas() {
         let (_, events) = run_dispatch_sequence(vec![
-            // Start tool_use block
             serde_json::json!({
                 "type": "stream_event",
                 "event": { "type": "content_block_start", "content_block": { "type": "tool_use", "id": "t1", "name": "search_notes", "input": {} } }
             }),
-            // Input delta chunks
             serde_json::json!({
                 "type": "stream_event",
                 "event": { "type": "content_block_delta", "delta": { "type": "input_json_delta", "partial_json": "{\"query\":" } }
@@ -859,12 +856,10 @@ mod tests {
                 "type": "stream_event",
                 "event": { "type": "content_block_delta", "delta": { "type": "input_json_delta", "partial_json": "\"test\"}" } }
             }),
-            // Stop block
             serde_json::json!({
                 "type": "stream_event",
                 "event": { "type": "content_block_stop" }
             }),
-            // Assistant message triggers ToolStart with accumulated input
             serde_json::json!({
                 "type": "assistant",
                 "message": { "content": [
@@ -872,12 +867,10 @@ mod tests {
                 ] }
             }),
         ]);
-        // First event: ToolStart with no input (from content_block_start)
         assert!(matches!(
             &events[0],
             ClaudeStreamEvent::ToolStart { input: None, .. }
         ));
-        // Second event: ToolStart with accumulated input (from assistant)
         assert!(
             matches!(&events[1], ClaudeStreamEvent::ToolStart { input: Some(inp), .. }
                 if inp == "{\"query\":\"test\"}")
@@ -889,7 +882,7 @@ mod tests {
         let (_, events) = run_dispatch(serde_json::json!({
             "type": "assistant",
             "message": { "content": [
-                { "type": "tool_use", "id": "tu_x", "name": "create_note", "input": { "title": "Hello", "content": "world" } }
+                { "type": "tool_use", "id": "tu_x", "name": "create_note", "input": { "title": "Hello", "content": "World" } }
             ] }
         }));
         assert!(
@@ -1070,7 +1063,6 @@ mod tests {
 
     #[test]
     fn build_agent_args_basic() {
-        // build_agent_args calls build_mcp_config which needs mcp_server_dir
         if let Ok(args) = build_agent_args(&AgentStreamRequest {
             message: "create note".into(),
             system_prompt: None,
@@ -1082,7 +1074,6 @@ mod tests {
             assert!(args.contains(&"--dangerously-skip-permissions".to_string()));
             assert!(args.contains(&"--no-session-persistence".to_string()));
             assert!(!args.contains(&"--append-system-prompt".to_string()));
-            // Native tools must NOT be disabled
             assert!(!args.contains(&"--tools".to_string()));
         }
     }
@@ -1190,20 +1181,15 @@ mod tests {
 
     #[test]
     fn find_claude_binary_in_user_shell_skips_on_windows() {
-        // The function returns None on Windows (cfg check).
-        // On non-Windows, it attempts shell detection.
         let result = find_claude_binary_in_user_shell();
         if cfg!(target_os = "windows") {
             assert!(result.is_none(), "Should skip shell detection on Windows");
         }
-        // On macOS/Linux, result depends on whether claude is installed
     }
 
     #[test]
     fn find_claude_binary_returns_result() {
         let result = find_claude_binary();
-        // On dev machines claude may be installed; on CI it may not.
-        // Either way, the function should return Ok(path) or Err(message).
         match &result {
             Ok(path) => assert!(path.exists()),
             Err(msg) => assert!(msg.contains("not found")),
@@ -1220,9 +1206,7 @@ mod tests {
             session_id: None,
         };
         let mut events = vec![];
-        // This will either succeed (if claude is installed) or fail (if not).
         let result = run_chat_stream(req, |e| events.push(e));
-        // Either way the function should have returned without panicking.
         assert!(result.is_ok() || result.is_err());
     }
 
@@ -1270,7 +1254,6 @@ mod tests {
             "echo 'some warning' >&2\n",
             "exit 1\n",
         ));
-        // Should NOT have an error event because session_id is non-empty
         assert!(!events
             .iter()
             .any(|e| matches!(e, ClaudeStreamEvent::Error { .. })));

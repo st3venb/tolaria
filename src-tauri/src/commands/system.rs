@@ -3,9 +3,9 @@ use std::process::Command;
 
 #[cfg(desktop)]
 use crate::menu;
-use crate::settings::Settings;
-use crate::vault_list;
-use crate::vault_list::VaultList;
+use tolaria_core::settings::Settings;
+use tolaria_core::vault_list;
+use tolaria_core::vault_list::VaultList;
 use serde::Deserialize;
 #[cfg(desktop)]
 use tauri::ipc::Channel;
@@ -109,7 +109,7 @@ fn apply_title_bar_double_click_action(
 #[tauri::command]
 pub async fn register_mcp_tools(vault_path: String) -> Result<String, String> {
     let vault_path = super::expand_tilde(&vault_path).into_owned();
-    tokio::task::spawn_blocking(move || crate::mcp::register_mcp(&vault_path))
+    tokio::task::spawn_blocking(move || tolaria_core::mcp::register_mcp(&vault_path))
         .await
         .map_err(|e| format!("Registration task failed: {e}"))?
 }
@@ -117,16 +117,16 @@ pub async fn register_mcp_tools(vault_path: String) -> Result<String, String> {
 #[cfg(desktop)]
 #[tauri::command]
 pub async fn remove_mcp_tools() -> Result<String, String> {
-    tokio::task::spawn_blocking(crate::mcp::remove_mcp)
+    tokio::task::spawn_blocking(tolaria_core::mcp::remove_mcp)
         .await
         .map_err(|e| format!("Removal task failed: {e}"))
 }
 
 #[cfg(desktop)]
 #[tauri::command]
-pub async fn check_mcp_status(vault_path: String) -> Result<crate::mcp::McpStatus, String> {
+pub async fn check_mcp_status(vault_path: String) -> Result<tolaria_core::mcp::McpStatus, String> {
     let vault_path = super::expand_tilde(&vault_path).into_owned();
-    tokio::task::spawn_blocking(move || crate::mcp::check_mcp_status(&vault_path))
+    tokio::task::spawn_blocking(move || tolaria_core::mcp::check_mcp_status(&vault_path))
         .await
         .map_err(|e| format!("MCP status check failed: {e}"))
 }
@@ -147,8 +147,8 @@ pub async fn remove_mcp_tools() -> Result<String, String> {
 
 #[cfg(mobile)]
 #[tauri::command]
-pub async fn check_mcp_status(_vault_path: String) -> Result<crate::mcp::McpStatus, String> {
-    Ok(crate::mcp::McpStatus::NotInstalled)
+pub async fn check_mcp_status(_vault_path: String) -> Result<tolaria_core::mcp::McpStatus, String> {
+    Ok(tolaria_core::mcp::McpStatus::NotInstalled)
 }
 
 // ── Menu commands ───────────────────────────────────────────────────────────
@@ -284,12 +284,12 @@ pub fn get_build_number(app_handle: tauri::AppHandle) -> String {
 
 #[tauri::command]
 pub fn get_settings() -> Result<Settings, String> {
-    crate::settings::get_settings()
+    tolaria_core::settings::get_settings()
 }
 
 #[tauri::command]
 pub fn save_settings(settings: Settings) -> Result<(), String> {
-    crate::settings::save_settings(settings)
+    tolaria_core::settings::save_settings(settings)
 }
 
 #[cfg(desktop)]

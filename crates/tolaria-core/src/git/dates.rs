@@ -118,10 +118,8 @@ file-b.md
 ";
         let map = parse_git_log_output(output);
         assert_eq!(map.len(), 2);
-        // file-a: modified = newest (2026-03-15), created = oldest (2026-03-10)
         assert_eq!(map["file-a.md"].modified_at, 1773568800);
         assert_eq!(map["file-a.md"].created_at, 1773129600);
-        // file-b: only in second commit
         assert_eq!(map["file-b.md"].modified_at, 1773129600);
         assert_eq!(map["file-b.md"].created_at, 1773129600);
     }
@@ -165,7 +163,6 @@ notes/daily.md
         let dir = tempfile::TempDir::new().unwrap();
         let vault = dir.path();
 
-        // Init repo
         std::process::Command::new("git")
             .args(["init"])
             .current_dir(vault)
@@ -182,7 +179,6 @@ notes/daily.md
             .output()
             .unwrap();
 
-        // First commit with one file
         std::fs::write(vault.join("first.md"), "# First\n").unwrap();
         std::process::Command::new("git")
             .args(["add", "."])
@@ -195,7 +191,6 @@ notes/daily.md
             .output()
             .unwrap();
 
-        // Second commit with another file + modify first
         std::fs::write(vault.join("first.md"), "# First\nUpdated.\n").unwrap();
         std::fs::write(vault.join("second.md"), "# Second\n").unwrap();
         std::process::Command::new("git")
@@ -213,11 +208,7 @@ notes/daily.md
         assert_eq!(map.len(), 2);
         assert!(map.contains_key("first.md"));
         assert!(map.contains_key("second.md"));
-
-        // first.md: created in commit 1, modified in commit 2
-        // So modified_at > created_at (or equal if commits are same second)
         assert!(map["first.md"].modified_at >= map["first.md"].created_at);
-        // second.md: only in commit 2
         assert_eq!(map["second.md"].modified_at, map["second.md"].created_at);
     }
 

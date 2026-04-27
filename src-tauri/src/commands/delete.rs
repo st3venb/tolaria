@@ -1,4 +1,4 @@
-use crate::vault;
+use tolaria_core::vault;
 
 use super::vault::VaultBoundary;
 

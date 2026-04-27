@@ -138,6 +138,7 @@ fn fallback_node_paths_windows() -> Vec<PathBuf> {
 pub(crate) fn mcp_server_dir() -> Result<PathBuf, String> {
     let dev_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
+        .join("..")
         .join("mcp-server");
     let exe = std::env::current_exe().map_err(|e| format!("Cannot find executable: {e}"))?;
     let macos_release_path = exe
@@ -673,6 +674,7 @@ mod tests {
             ]
         );
     }
+
     #[test]
     fn upsert_returns_error_for_invalid_json() {
         let tmp = tempfile::tempdir().unwrap();
@@ -686,9 +688,7 @@ mod tests {
     #[test]
     fn register_mcp_to_configs_handles_empty_list() {
         let entry = build_mcp_entry("/test/index.js", "/vault");
-        // Empty config list — function should return "registered" (no existing)
         let status = register_mcp_to_configs(&entry, &[]);
-        // With empty config list, there were no updates, so status should be "registered"
         assert_eq!(status, "registered");
     }
 
@@ -893,7 +893,6 @@ mod tests {
         write_sentinel(&win);
 
         let result = resolve_mcp_server_dir(&dev, Some(&macos), Some(&win)).unwrap();
-        // canonicalize may resolve symlinks, so compare canonical forms
         assert_eq!(
             std::fs::canonicalize(&dev).unwrap(),
             std::fs::canonicalize(&result).unwrap()
@@ -903,7 +902,7 @@ mod tests {
     #[test]
     fn resolve_mcp_server_dir_picks_macos_release_when_dev_missing() {
         let tmp = tempfile::tempdir().unwrap();
-        let dev = tmp.path().join("dev-mcp"); // no sentinel
+        let dev = tmp.path().join("dev-mcp");
         let macos = tmp.path().join("Contents").join("Resources").join("mcp-server");
         write_sentinel(&macos);
 
@@ -914,8 +913,8 @@ mod tests {
     #[test]
     fn resolve_mcp_server_dir_picks_windows_release_when_others_missing() {
         let tmp = tempfile::tempdir().unwrap();
-        let dev = tmp.path().join("dev-mcp"); // no sentinel
-        let macos = tmp.path().join("macos-mcp"); // no sentinel
+        let dev = tmp.path().join("dev-mcp");
+        let macos = tmp.path().join("macos-mcp");
         let win = tmp.path().join("mcp-server");
         write_sentinel(&win);
 
@@ -929,7 +928,6 @@ mod tests {
         let dev = tmp.path().join("dev-mcp");
         let macos = tmp.path().join("macos-mcp");
         let win = tmp.path().join("win-mcp");
-        // No sentinels written — all paths missing
 
         let err = resolve_mcp_server_dir(&dev, Some(&macos), Some(&win)).unwrap_err();
         assert!(err.contains(&dev.display().to_string()), "error should contain dev path: {err}");
@@ -944,7 +942,6 @@ mod tests {
 
         let err = resolve_mcp_server_dir(&dev, None, None).unwrap_err();
         assert!(err.contains(&dev.display().to_string()));
-        // Should only list the dev path when others are None
         assert!(err.starts_with("mcp-server not found at"));
     }
 
@@ -952,11 +949,8 @@ mod tests {
 
     #[test]
     fn find_node_on_path_uses_which_on_current_platform() {
-        // On macOS/Linux (our CI), `which` should be available and find node.
-        // This implicitly verifies the cfg! dispatch picks `which` (not `where.exe`).
         let result = find_node_on_path();
         assert!(result.is_ok(), "find_node_on_path should not error: {:?}", result);
-        // Node is expected to be installed in dev/CI environments
         if let Ok(Some(path)) = &result {
             assert!(
                 path.to_string_lossy().contains("node"),
@@ -997,11 +991,7 @@ mod tests {
         std::fs::create_dir_all(&v20).unwrap();
         std::fs::create_dir_all(&v22).unwrap();
 
-        // Override HOME so fallback_node_paths_unix picks up our temp nvm dir.
-        // We can't easily do that for the function as-is (it uses dirs::home_dir),
-        // so we verify the static paths are always present.
         let paths = fallback_node_paths_unix();
-        // At minimum, the two static Homebrew paths are always present
         assert!(paths.len() >= 2);
         assert_eq!(paths[0], PathBuf::from("/opt/homebrew/bin/node"));
         assert_eq!(paths[1], PathBuf::from("/usr/local/bin/node"));
@@ -1009,9 +999,6 @@ mod tests {
 
     #[test]
     fn fallback_node_paths_windows_builds_correct_paths_from_env() {
-        // Test the path construction logic by setting env vars and verifying
-        // the resulting PathBuf components. We use temp dirs as env values
-        // to avoid conflicts with parallel tests.
         let tmp = tempfile::tempdir().unwrap();
         let fake_pf = tmp.path().join("ProgramFiles");
         let fake_la = tmp.path().join("LocalAppData");
@@ -1030,7 +1017,6 @@ mod tests {
 
         let paths = fallback_node_paths_windows();
 
-        // Restore env vars immediately
         match orig_pf {
             Some(v) => std::env::set_var("ProgramFiles", v),
             None => std::env::remove_var("ProgramFiles"),
@@ -1044,13 +1030,11 @@ mod tests {
             None => std::env::remove_var("APPDATA"),
         }
 
-        // ProgramFiles/nodejs/node.exe
         assert!(
             paths.contains(&fake_pf.join("nodejs").join("node.exe")),
             "should include ProgramFiles/nodejs/node.exe: {:?}",
             paths
         );
-        // LOCALAPPDATA/Volta/node.exe
         assert!(
             paths.contains(&fake_la.join("Volta").join("node.exe")),
             "should include LOCALAPPDATA/Volta/node.exe: {:?}",
@@ -1091,7 +1075,6 @@ mod tests {
             None => std::env::remove_var("APPDATA"),
         }
 
-        // Should include nvm version paths with node.exe
         assert!(
             paths.contains(&v22.join("node.exe")),
             "should include nvm v22 path: {:?}",

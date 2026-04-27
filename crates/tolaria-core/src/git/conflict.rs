@@ -17,8 +17,6 @@ pub fn get_conflict_files(vault_path: &str) -> Result<Vec<String>, String> {
         .map_err(|e| format!("Failed to check conflicts: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // Each unmerged file appears multiple times (once per stage: base/ours/theirs).
-    // Format: "<mode> <hash> <stage>\t<path>"
     let mut files: Vec<String> = stdout
         .lines()
         .filter_map(|line| line.split('\t').nth(1).map(|s| s.to_string()))
@@ -82,7 +80,6 @@ pub fn get_conflict_mode(vault_path: &str) -> String {
 pub fn git_commit_conflict_resolution(vault_path: &str) -> Result<String, String> {
     let vault = Path::new(vault_path);
 
-    // Verify no remaining conflicts
     let remaining = get_conflict_files(vault_path)?;
     if !remaining.is_empty() {
         return Err(format!(
@@ -171,32 +168,25 @@ mod tests {
         assert!(!is_merge_in_progress(vp));
     }
 
-    /// Set up a pair of clones that have a merge conflict on the same file.
-    /// Returns (bare, clone_a, clone_b) where clone_b has an unresolved conflict.
     fn setup_conflict_pair() -> (TempDir, TempDir, TempDir) {
         let (bare_dir, clone_a_dir, clone_b_dir) = setup_remote_pair();
 
         let vp_a = clone_a_dir.path().to_str().unwrap();
         let vp_b = clone_b_dir.path().to_str().unwrap();
 
-        // A creates the file and pushes
         fs::write(clone_a_dir.path().join("conflict.md"), "# Original\n").unwrap();
         git_commit(vp_a, "create conflict.md").unwrap();
         git_push(vp_a).unwrap();
 
-        // B pulls to get the file
         git_pull(vp_b).unwrap();
 
-        // A modifies and pushes
         fs::write(clone_a_dir.path().join("conflict.md"), "# Version A\n").unwrap();
         git_commit(vp_a, "A's change").unwrap();
         git_push(vp_a).unwrap();
 
-        // B modifies the same file locally and commits
         fs::write(clone_b_dir.path().join("conflict.md"), "# Version B\n").unwrap();
         git_commit(vp_b, "B's change").unwrap();
 
-        // B pulls — this causes a merge conflict
         let result = git_pull(vp_b).unwrap();
         assert_eq!(result.status, "conflict");
 
@@ -289,8 +279,6 @@ mod tests {
         assert_eq!(get_conflict_mode(vp_b), "none");
     }
 
-    /// Set up a rebase conflict: clone_b has diverged from origin and
-    /// `git pull --rebase` causes a conflict.
     fn setup_rebase_conflict_pair() -> (TempDir, TempDir, TempDir) {
         let (bare_dir, clone_a_dir, clone_b_dir) = setup_remote_pair();
 

@@ -1,0 +1,10 @@
+pub mod vault;
+pub mod frontmatter;
+pub mod git;
+pub mod search;
+pub mod settings;
+pub mod vault_list;
+pub mod mcp;
+pub mod ai_agents;
+pub mod claude_cli;
+pub mod boundary;

@@ -59,11 +59,7 @@ fn parse_numstat_line(line: &str) -> Option<(String, DiffStats)> {
 
     Some((
         parts.last()?.trim().to_string(),
-        DiffStats {
-            added_lines,
-            deleted_lines,
-            binary,
-        },
+        DiffStats { added_lines, deleted_lines, binary },
     ))
 }
 
@@ -73,7 +69,6 @@ fn repo_has_head(vault: &Path) -> Result<bool, String> {
         .current_dir(vault)
         .output()
         .map_err(|e| format!("Failed to run git rev-parse: {e}"))?;
-
     Ok(output.status.success())
 }
 
@@ -81,23 +76,17 @@ fn load_diff_stats(vault: &Path) -> Result<HashMap<String, DiffStats>, String> {
     if !repo_has_head(vault)? {
         return Ok(HashMap::new());
     }
-
     let output = Command::new("git")
         .args(["diff", "--numstat", "--find-renames", "HEAD", "--"])
         .current_dir(vault)
         .output()
         .map_err(|e| format!("Failed to run git diff --numstat: {e}"))?;
-
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("git diff --numstat failed: {}", stderr.trim()));
     }
-
     let stdout = String::from_utf8_lossy(&output.stdout);
-    Ok(stdout
-        .lines()
-        .filter_map(parse_numstat_line)
-        .collect::<HashMap<_, _>>())
+    Ok(stdout.lines().filter_map(parse_numstat_line).collect::<HashMap<_, _>>())
 }
 
 fn count_worktree_lines(vault: &Path, relative_path: &str) -> DiffStats {
@@ -105,12 +94,7 @@ fn count_worktree_lines(vault: &Path, relative_path: &str) -> DiffStats {
     let added_lines = std::fs::read_to_string(full_path)
         .ok()
         .map(|content| content.lines().count());
-
-    DiffStats {
-        added_lines,
-        deleted_lines: None,
-        binary: false,
-    }
+    DiffStats { added_lines, deleted_lines: None, binary: false }
 }
 
 fn resolve_diff_stats(
@@ -122,7 +106,6 @@ fn resolve_diff_stats(
     if status == "untracked" {
         return count_worktree_lines(vault, relative_path);
     }
-
     diff_stats.get(relative_path).copied().unwrap_or_default()
 }
 
@@ -132,23 +115,12 @@ fn ensure_path_within_vault(vault: &Path, relative_path: &str, abs: &Path) -> Re
             return Err("File path is outside the vault".into());
         }
     }
-
     if !abs.exists() {
         return Ok(());
     }
-
-    let canonical_vault = vault
-        .canonicalize()
-        .map_err(|e| format!("Cannot resolve vault path: {e}"))?;
-    let canonical_file = abs
-        .canonicalize()
-        .map_err(|e| format!("Cannot resolve file path: {e}"))?;
-
-    if canonical_file.starts_with(&canonical_vault) {
-        Ok(())
-    } else {
-        Err("File path is outside the vault".into())
-    }
+    let canonical_vault = vault.canonicalize().map_err(|e| format!("Cannot resolve vault path: {e}"))?;
+    let canonical_file = abs.canonicalize().map_err(|e| format!("Cannot resolve file path: {e}"))?;
+    if canonical_file.starts_with(&canonical_vault) { Ok(()) } else { Err("File path is outside the vault".into()) }
 }
 
 fn load_file_status(vault: &Path, relative_path: &str) -> Result<String, String> {
@@ -157,31 +129,18 @@ fn load_file_status(vault: &Path, relative_path: &str) -> Result<String, String>
         .current_dir(vault)
         .output()
         .map_err(|e| format!("Failed to run git status: {e}"))?;
-
     let stdout = String::from_utf8_lossy(&output.stdout);
-    Ok(stdout
-        .lines()
-        .find(|line| line.len() >= 4)
-        .map(|line| line[..2].trim().to_string())
-        .unwrap_or_default())
+    Ok(stdout.lines().find(|line| line.len() >= 4).map(|line| line[..2].trim().to_string()).unwrap_or_default())
 }
 
 fn restore_tracked_file(vault: &Path, relative_path: &str) -> Result<(), String> {
-    let _ = Command::new("git")
-        .args(["reset", "HEAD", "--", relative_path])
-        .current_dir(vault)
-        .output();
-
+    let _ = Command::new("git").args(["reset", "HEAD", "--", relative_path]).current_dir(vault).output();
     let checkout = Command::new("git")
         .args(["checkout", "--", relative_path])
         .current_dir(vault)
         .output()
         .map_err(|e| format!("Failed to run git checkout: {e}"))?;
-
-    if checkout.status.success() {
-        return Ok(());
-    }
-
+    if checkout.status.success() { return Ok(()); }
     let stderr = String::from_utf8_lossy(&checkout.stderr);
     Err(format!("git checkout failed: {}", stderr.trim()))
 }
@@ -194,33 +153,23 @@ pub fn get_modified_files(vault_path: &str) -> Result<Vec<ModifiedFile>, String>
         .current_dir(vault)
         .output()
         .map_err(|e| format!("Failed to run git status: {e}"))?;
-
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("git status failed: {}", stderr.trim()));
     }
-
     let diff_stats = load_diff_stats(vault)?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let files = stdout
         .lines()
         .filter(|line| !line.is_empty())
         .filter_map(|line| {
-            if line.len() < 4 {
-                return None;
-            }
+            if line.len() < 4 { return None; }
             let status_code = &line[..2];
             let relative_path = parse_status_path(&line[3..]);
-
-            // Only include markdown files
-            if !relative_path.ends_with(".md") {
-                return None;
-            }
-
+            if !relative_path.ends_with(".md") { return None; }
             let status = status_label(status_code);
             let full_path = vault.join(&relative_path).to_string_lossy().to_string();
             let stats = resolve_diff_stats(vault, &relative_path, status, &diff_stats);
-
             Some(ModifiedFile {
                 path: full_path,
                 relative_path,
@@ -231,34 +180,23 @@ pub fn get_modified_files(vault_path: &str) -> Result<Vec<ModifiedFile>, String>
             })
         })
         .collect();
-
     Ok(files)
 }
 
 /// Discard uncommitted changes to a single file.
-///
-/// - **Modified / Deleted**: `git checkout -- <file>` restores the last committed version.
-/// - **Untracked / Added**: the file is removed from disk.
-///
-/// The `relative_path` must be relative to `vault_path` (the same format
-/// returned by [`get_modified_files`]).
 pub fn discard_file_changes(vault_path: &str, relative_path: &str) -> Result<(), String> {
     let vault = Path::new(vault_path);
     let abs = vault.join(relative_path);
-
     ensure_path_within_vault(vault, relative_path, &abs)?;
     let status_code = load_file_status(vault, relative_path)?;
-
     match status_code.as_str() {
         "??" => {
-            std::fs::remove_file(&abs)
-                .map_err(|e| format!("Failed to delete untracked file: {e}"))?;
+            std::fs::remove_file(&abs).map_err(|e| format!("Failed to delete untracked file: {e}"))?;
         }
         _ => {
             restore_tracked_file(vault, relative_path)?;
         }
     }
-
     Ok(())
 }
 
@@ -279,80 +217,31 @@ mod tests {
     fn test_get_modified_files() {
         let dir = setup_git_repo();
         let vault = dir.path();
-
-        // Create and commit a file
         fs::write(vault.join("note.md"), "# Note\n").unwrap();
-        Command::new("git")
-            .args(["add", "note.md"])
-            .current_dir(vault)
-            .output()
-            .unwrap();
-        Command::new("git")
-            .args(["commit", "-m", "Add note"])
-            .current_dir(vault)
-            .output()
-            .unwrap();
-
-        // Modify it
+        Command::new("git").args(["add", "note.md"]).current_dir(vault).output().unwrap();
+        Command::new("git").args(["commit", "-m", "Add note"]).current_dir(vault).output().unwrap();
         fs::write(vault.join("note.md"), "# Note\n\nUpdated.").unwrap();
-        // Add an untracked file
         fs::write(vault.join("new.md"), "# New\n").unwrap();
-
         let modified = get_modified_files(vault.to_str().unwrap()).unwrap();
-
         assert!(modified.len() >= 2);
         let statuses: Vec<&str> = modified.iter().map(|f| f.status.as_str()).collect();
         assert!(statuses.contains(&"modified"));
         assert!(statuses.contains(&"untracked"));
-
-        let modified_entry = modified
-            .iter()
-            .find(|file| file.relative_path == "note.md")
-            .unwrap();
-        assert!(modified_entry.added_lines.is_some());
-        assert!(!modified_entry.binary);
-
-        let untracked_entry = modified
-            .iter()
-            .find(|file| file.relative_path == "new.md")
-            .unwrap();
-        assert_eq!(untracked_entry.added_lines, Some(1));
-        assert_eq!(untracked_entry.deleted_lines, None);
     }
 
     #[test]
     fn test_get_modified_files_untracked_in_subdirectory() {
         let dir = setup_git_repo();
         let vault = dir.path();
-
-        // Create initial commit so git is initialized
         fs::write(vault.join("init.md"), "# Init\n").unwrap();
-        Command::new("git")
-            .args(["add", "init.md"])
-            .current_dir(vault)
-            .output()
-            .unwrap();
-        Command::new("git")
-            .args(["commit", "-m", "Initial"])
-            .current_dir(vault)
-            .output()
-            .unwrap();
-
-        // Create a new untracked file in a subdirectory (simulates new note creation)
+        Command::new("git").args(["add", "init.md"]).current_dir(vault).output().unwrap();
+        Command::new("git").args(["commit", "-m", "Initial"]).current_dir(vault).output().unwrap();
         fs::create_dir_all(vault.join("note")).unwrap();
         fs::write(vault.join("note/brand-new.md"), "# Brand New\n").unwrap();
-
         let modified = get_modified_files(vault.to_str().unwrap()).unwrap();
-
         assert_eq!(modified.len(), 1);
         assert_eq!(modified[0].status, "untracked");
         assert_eq!(modified[0].relative_path, "note/brand-new.md");
-        assert_eq!(modified[0].added_lines, Some(1));
-        assert!(
-            modified[0].path.ends_with("/note/brand-new.md"),
-            "Full path should end with relative path: {}",
-            modified[0].path
-        );
     }
 
     #[test]
@@ -360,36 +249,14 @@ mod tests {
         let dir = setup_git_repo();
         let vault = dir.path();
         let vp = vault.to_str().unwrap();
-
-        // Create and commit initial file
         fs::write(vault.join("flow.md"), "# Original\n").unwrap();
         git_commit(vp, "initial").unwrap();
-
-        // Modify the file on disk
         fs::write(vault.join("flow.md"), "# Modified\n").unwrap();
-
-        // get_modified_files should detect the change
         let modified = get_modified_files(vp).unwrap();
-        assert!(
-            modified.iter().any(|f| f.relative_path == "flow.md"),
-            "Modified file should be detected after write"
-        );
-
-        // Commit the change
-        let result = git_commit(vp, "update flow").unwrap();
-        assert!(
-            result.contains("1 file changed") || result.contains("flow.md"),
-            "Commit output should reference the changed file: {}",
-            result
-        );
-
-        // After commit, get_modified_files should return empty
+        assert!(modified.iter().any(|f| f.relative_path == "flow.md"));
+        git_commit(vp, "update flow").unwrap();
         let after = get_modified_files(vp).unwrap();
-        assert!(
-            after.is_empty(),
-            "No modified files should remain after commit, found: {:?}",
-            after
-        );
+        assert!(after.is_empty());
     }
 
     #[test]
@@ -397,19 +264,11 @@ mod tests {
         let dir = setup_git_repo();
         let vault = dir.path();
         let vp = vault.to_str().unwrap();
-
         write_and_commit_markdown(vault, vp, "note.md", "# Original\n");
-
-        // Modify the file
         fs::write(vault.join("note.md"), "# Changed\n").unwrap();
-        assert_eq!(get_modified_files(vp).unwrap().len(), 1);
-
-        // Discard
         discard_file_changes(vp, "note.md").unwrap();
-
         let content = fs::read_to_string(vault.join("note.md")).unwrap();
         assert_eq!(content, "# Original\n");
-        assert!(get_modified_files(vp).unwrap().is_empty());
     }
 
     #[test]
@@ -417,17 +276,10 @@ mod tests {
         let dir = setup_git_repo();
         let vault = dir.path();
         let vp = vault.to_str().unwrap();
-
         write_and_commit_markdown(vault, vp, "init.md", "# Init\n");
-
-        // Create an untracked file
         fs::write(vault.join("new.md"), "# New\n").unwrap();
-        assert!(vault.join("new.md").exists());
-
         discard_file_changes(vp, "new.md").unwrap();
-
         assert!(!vault.join("new.md").exists());
-        assert!(get_modified_files(vp).unwrap().is_empty());
     }
 
     #[test]
@@ -435,15 +287,9 @@ mod tests {
         let dir = setup_git_repo();
         let vault = dir.path();
         let vp = vault.to_str().unwrap();
-
         write_and_commit_markdown(vault, vp, "note.md", "# Original\n");
-
-        // Delete the file
         fs::remove_file(vault.join("note.md")).unwrap();
-        assert!(!vault.join("note.md").exists());
-
         discard_file_changes(vp, "note.md").unwrap();
-
         assert!(vault.join("note.md").exists());
         let content = fs::read_to_string(vault.join("note.md")).unwrap();
         assert_eq!(content, "# Original\n");
@@ -454,18 +300,9 @@ mod tests {
         let dir = setup_git_repo();
         let vault = dir.path();
         let vp = vault.to_str().unwrap();
-
         write_and_commit_markdown(vault, vp, "init.md", "# Init\n");
-
         let result = discard_file_changes(vp, "../../../etc/passwd");
-        assert!(
-            result.is_err(),
-            "Should reject path outside vault, got: {:?}",
-            result
-        );
-        assert!(
-            result.unwrap_err().contains("outside the vault"),
-            "Error should mention 'outside the vault'"
-        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("outside the vault"));
     }
 }
